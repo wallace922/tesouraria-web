@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Scrollbar customizada para o tema escuro */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0e1410;
+}
+::-webkit-scrollbar-thumb {
+  background: #3d4f3e;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #f59e0b;
+}
+
+@layer components {
+  .glass-panel {
+    @apply rounded-xl border border-white/10 bg-black/60 backdrop-blur-md shadow-inner;
+  }
+}
