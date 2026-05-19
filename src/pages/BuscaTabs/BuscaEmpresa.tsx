@@ -3,6 +3,7 @@ import Button from '../../components/Button';
 import Input from '../../components/Input';
 import Alert from '../../components/Alert';
 import EditIconButton from '../../components/EditIconButton';
+import PaginationControls from '../../components/PaginationControls';
 import { findEmpresaByCnpj, getAllEmpresa, updateEmpresa } from '../../services/api';
 import type { EmpresaDto } from '../../types';
 import { formatCNPJ } from '../../lib/utils';
@@ -18,6 +19,7 @@ export default function BuscaEmpresa() {
     loading, error, setError,
     allResults, setAllResults,
     showAll, setShowAll,
+    currentPage, totalPages, totalElements,
     found, setFound,
     editing, setEditing,
     saving, saveError, setSaveError,
@@ -25,6 +27,9 @@ export default function BuscaEmpresa() {
     resetSearch,
     handleSearchRequest,
     handleGetAllRequest,
+    handleNextPage,
+    handlePreviousPage,
+    handleGoToPage,
     handleSaveRequest
   } = useEntitySearch<EmpresaDto>();
 
@@ -41,23 +46,22 @@ export default function BuscaEmpresa() {
     handleSaveRequest(
       () => updateEmpresa(payload),
       'Empresa atualizada com sucesso!',
-      handleGetAll
+      () => handleGetAllRequest(getAllEmpresa)
     );
   };
 
   const handleSearch = () => {
-    if (loading) return; 
+    if (loading) return;
     const raw = searchCnpj.replace(/\D/g, '');
-    if (raw.length !== 14) { 
+    if (raw.length !== 14) {
       resetSearch();
-      setError('CNPJ inválido (14 dígitos).'); 
-      return; 
+      setError('CNPJ inválido (14 dígitos).');
+      return;
     }
-    
+
     handleSearchRequest(
       () => findEmpresaByCnpj(raw),
       (data) => {
-        // Only edit if the input hasn't changed during the request
         const currentRaw = searchCnpj.replace(/\D/g, '');
         if (raw === currentRaw) {
           handleEdit({ ...data, cnpj: raw });
@@ -67,7 +71,7 @@ export default function BuscaEmpresa() {
   };
 
   const handleGetAll = () => {
-    handleGetAllRequest(() => getAllEmpresa());
+    handleGetAllRequest(getAllEmpresa);
   };
 
   return (
@@ -106,28 +110,40 @@ export default function BuscaEmpresa() {
       )}
 
       {showAll && !editing && allResults.length > 0 && (
-        <TableContainer title="Resultados" count={allResults.length}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-stone-500 text-xs uppercase border-b border-white/10">
-                <th className="py-2 pr-4">CNPJ</th>
-                <th className="py-2 pr-4">Nome</th>
-                <th className="py-2 pr-4 w-8">✏️</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allResults.map((e, i) => (
-                <tr key={i} className="border-b border-stone-800 hover:bg-stone-800/30">
-                  <td className="py-2 pr-4 text-amber-300 font-mono whitespace-nowrap">{formatCNPJ(e.cnpj)}</td>
-                  <td className="py-2 pr-4 text-gray-300">{e.nome}</td>
-                  <td className="py-2 pr-4 w-8">
-                    <EditIconButton onClick={() => handleEdit(e)} />
-                  </td>
+        <>
+          <TableContainer title="Resultados" count={allResults.length}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-stone-500 text-xs uppercase border-b border-white/10">
+                  <th className="py-2 pr-4">CNPJ</th>
+                  <th className="py-2 pr-4">Nome</th>
+                  <th className="py-2 pr-4 w-8">✏️</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableContainer>
+              </thead>
+              <tbody>
+                {allResults.map((e, i) => (
+                  <tr key={i} className="border-b border-stone-800 hover:bg-stone-800/30">
+                    <td className="py-2 pr-4 text-amber-300 font-mono whitespace-nowrap">{formatCNPJ(e.cnpj)}</td>
+                    <td className="py-2 pr-4 text-gray-300">{e.nome}</td>
+                    <td className="py-2 pr-4 w-8">
+                      <EditIconButton onClick={() => handleEdit(e)} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableContainer>
+
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            loading={loading}
+            onPrevious={() => handlePreviousPage(getAllEmpresa)}
+            onNext={() => handleNextPage(getAllEmpresa)}
+            onGoToPage={(page) => handleGoToPage(page, getAllEmpresa)}
+          />
+        </>
       )}
     </div>
   );

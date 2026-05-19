@@ -3,6 +3,7 @@ import Button from '../../components/Button';
 import Input from '../../components/Input';
 import Alert from '../../components/Alert';
 import EditIconButton from '../../components/EditIconButton';
+import PaginationControls from '../../components/PaginationControls';
 import { findFinancialPlanningByNumber, getAllFinancialPlanning, updateFinancialPlanning } from '../../services/api';
 import type { FinancialPlanningDto } from '../../types';
 import { formatDate, toInputDate } from '../../lib/utils';
@@ -18,14 +19,18 @@ export default function BuscaFinancialPlanning() {
 
   const {
     loading, error, setError,
-    allResults,
-    showAll,
+    allResults, setAllResults,
+    showAll, setShowAll,
+    currentPage, totalPages, totalElements,
     found, setFound,
     editing, setEditing,
-    saving, saveError,
-    success,
+    saving, saveError, setSaveError,
+    success, setSuccess,
     handleSearchRequest,
     handleGetAllRequest,
+    handleNextPage,
+    handlePreviousPage,
+    handleGoToPage,
     handleSaveRequest,
   } = useEntitySearch<FinancialPlanningDto>();
 
@@ -47,7 +52,11 @@ export default function BuscaFinancialPlanning() {
       vinculation: parseInt(vinculation, 10),
       origin: parseInt(origin, 10),
     };
-    handleSaveRequest(() => updateFinancialPlanning(payload), 'Financial Planning atualizado!', handleGetAll);
+    handleSaveRequest(
+      () => updateFinancialPlanning(payload),
+      'Financial Planning atualizado!',
+      () => handleGetAllRequest(getAllFinancialPlanning)
+    );
   };
 
   const handleSearch = () => {
@@ -59,7 +68,7 @@ export default function BuscaFinancialPlanning() {
   };
 
   const handleGetAll = () => {
-    handleGetAllRequest(() => getAllFinancialPlanning());
+    handleGetAllRequest(getAllFinancialPlanning);
   };
 
   return (
@@ -68,7 +77,7 @@ export default function BuscaFinancialPlanning() {
         <SectionTitle>Buscar Financial Planning por Nº ID</SectionTitle>
         <div className="flex flex-wrap items-end gap-3">
         <Input label="Nº ID" type="number" placeholder="1001" value={sId}
-          onChange={(e) => { setSId(e.target.value); setError(null); }}
+          onChange={(e) => { setSId(e.target.value); setError(null); setAllResults([]); setShowAll(false); }}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           className="w-36" />
         <Button variant="ghost" size="md" loading={loading} onClick={handleSearch}>🔍 Buscar</Button>
@@ -91,38 +100,50 @@ export default function BuscaFinancialPlanning() {
             <Button onClick={handleSave} loading={saving}>Salvar Alterações</Button>
             <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
           </div>
-          {saveError && <Alert variant="error" message={saveError} />}
-          {success && <Alert variant="success" message={success} />}
+          {saveError && <Alert variant="error" message={saveError} onClose={() => setSaveError(null)} />}
+          {success && <Alert variant="success" message={success} onClose={() => setSuccess(null)} />}
         </div>
       )}
 
       {showAll && !editing && allResults.length > 0 && (
-        <TableContainer title="Resultados" count={allResults.length}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-stone-500 text-xs uppercase border-b border-white/10">
-                <th className="py-2 pr-4">Nº ID</th>
-                <th className="py-2 pr-4">Data</th>
-                <th className="py-2 pr-4">Vinculação</th>
-                <th className="py-2 pr-4">Origem</th>
-                <th className="py-2 pr-4 w-8">✏️</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allResults.map((e, i) => (
-                <tr key={i} className="border-b border-stone-800 hover:bg-stone-800/30">
-                  <td className="py-2 pr-4 text-amber-300 font-mono">#{e.numberId}</td>
-                  <td className="py-2 pr-4 text-gray-300">{formatDate(e.data)}</td>
-                  <td className="py-2 pr-4 text-gray-300">{e.vinculation}</td>
-                  <td className="py-2 pr-4 text-stone-500">{e.origin}</td>
-                  <td className="py-2 pr-4 w-8">
-                    <EditIconButton onClick={() => handleEdit(e)} />
-                  </td>
+        <>
+          <TableContainer title="Resultados" count={allResults.length}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-stone-500 text-xs uppercase border-b border-white/10">
+                  <th className="py-2 pr-4">Nº ID</th>
+                  <th className="py-2 pr-4">Data</th>
+                  <th className="py-2 pr-4">Vinculação</th>
+                  <th className="py-2 pr-4">Origem</th>
+                  <th className="py-2 pr-4 w-8">✏️</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableContainer>
+              </thead>
+              <tbody>
+                {allResults.map((e, i) => (
+                  <tr key={i} className="border-b border-stone-800 hover:bg-stone-800/30">
+                    <td className="py-2 pr-4 text-amber-300 font-mono">#{e.numberId}</td>
+                    <td className="py-2 pr-4 text-gray-300">{formatDate(e.data)}</td>
+                    <td className="py-2 pr-4 text-gray-300">{e.vinculation}</td>
+                    <td className="py-2 pr-4 text-stone-500">{e.origin}</td>
+                    <td className="py-2 pr-4 w-8">
+                      <EditIconButton onClick={() => handleEdit(e)} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableContainer>
+
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            loading={loading}
+            onPrevious={() => handlePreviousPage(getAllFinancialPlanning)}
+            onNext={() => handleNextPage(getAllFinancialPlanning)}
+            onGoToPage={(page) => handleGoToPage(page, getAllFinancialPlanning)}
+          />
+        </>
       )}
     </div>
   );

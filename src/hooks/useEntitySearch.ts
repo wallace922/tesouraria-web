@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { ApiResult } from '../services/api';
+import { ApiResult, PaginatedResponse } from '../services/api';
 
 export function useEntitySearch<T>() {
+  const [pageSize] = useState(50);
+
   // Search state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -9,6 +11,11 @@ export function useEntitySearch<T>() {
   // List state
   const [allResults, setAllResults] = useState<T[]>([]);
   const [showAll, setShowAll] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
 
   // Edit state
   const [found, setFound] = useState<T | null>(null);
@@ -24,6 +31,9 @@ export function useEntitySearch<T>() {
     setAllResults([]);
     setShowAll(false);
     setFound(null);
+    setCurrentPage(0);
+    setTotalPages(0);
+    setTotalElements(0);
   };
 
   const handleSearchRequest = async (
@@ -42,17 +52,60 @@ export function useEntitySearch<T>() {
     setLoading(false);
   };
 
-  const handleGetAllRequest = async (request: () => Promise<ApiResult<T[]>>) => {
+  const handleGetAllRequest = async (
+    request: (page: number, size: number) => Promise<ApiResult<PaginatedResponse<T>>>
+  ) => {
     resetSearch();
     setLoading(true);
-    const res = await request();
-    if (res.data && res.data.length > 0) {
-      setAllResults(res.data);
+    setCurrentPage(0);
+    const res = await request(0, pageSize);
+    if (res.data && res.data.content.length > 0) {
+      setAllResults(res.data.content);
+      setTotalPages(res.data.totalPages);
+      setTotalElements(res.data.totalElements);
+      setCurrentPage(res.data.number);
       setShowAll(true);
     } else {
       setError('Nenhum registro encontrado.');
     }
     setLoading(false);
+  };
+
+  const handlePageChange = async (
+    newPage: number,
+    request: (page: number, size: number) => Promise<ApiResult<PaginatedResponse<T>>>
+  ) => {
+    if (newPage < 0 || newPage >= totalPages) return;
+    setLoading(true);
+    const res = await request(newPage, pageSize);
+    if (res.data && res.data.content.length > 0) {
+      setAllResults(res.data.content);
+      setCurrentPage(res.data.number);
+      setTotalPages(res.data.totalPages);
+      setTotalElements(res.data.totalElements);
+    } else {
+      setError('Nenhum registro encontrado nesta página.');
+    }
+    setLoading(false);
+  };
+
+  const handleNextPage = async (
+    request: (page: number, size: number) => Promise<ApiResult<PaginatedResponse<T>>>
+  ) => {
+    await handlePageChange(currentPage + 1, request);
+  };
+
+  const handlePreviousPage = async (
+    request: (page: number, size: number) => Promise<ApiResult<PaginatedResponse<T>>>
+  ) => {
+    await handlePageChange(currentPage - 1, request);
+  };
+
+  const handleGoToPage = async (
+    page: number,
+    request: (page: number, size: number) => Promise<ApiResult<PaginatedResponse<T>>>
+  ) => {
+    await handlePageChange(page, request);
   };
 
   const handleSaveRequest = async (
@@ -79,6 +132,9 @@ export function useEntitySearch<T>() {
     loading, error, setError,
     allResults, setAllResults,
     showAll, setShowAll,
+    currentPage, setCurrentPage,
+    totalPages, totalElements,
+    pageSize,
     found, setFound,
     editing, setEditing,
     saving, setSaving,
@@ -87,6 +143,10 @@ export function useEntitySearch<T>() {
     resetSearch,
     handleSearchRequest,
     handleGetAllRequest,
+    handlePageChange,
+    handleNextPage,
+    handlePreviousPage,
+    handleGoToPage,
     handleSaveRequest,
   };
 }

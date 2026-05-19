@@ -107,10 +107,15 @@ export async function findNpByNumeroEAno(numeroNp: number, date: number): Promis
   } catch (e) { return handleError(e); }
 }
 
-export async function getAllNp(): Promise<ApiResult<PaymentNoteDto[]>> {
+export async function getAllNp(
+  page: number = 0,
+  size: number = 50
+): Promise<ApiResult<PaginatedResponse<PaymentNoteDto>>> {
   try {
-    const res = await apiInstance.get<PaymentNoteDto[]>('/Np');
-    return { data: res.data || [], status: res.status, errorMessage: null };
+    const res = await apiInstance.get<PaginatedResponse<PaymentNoteDto>>('/Np', {
+      params: { page, size },
+    });
+    return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
 
@@ -142,10 +147,15 @@ export async function findEmpenhoByNumeroEAno(numero: number, date: number): Pro
   } catch (e) { return handleError(e); }
 }
 
-export async function getAllEmpenho(): Promise<ApiResult<EmpenhoDto[]>> {
+export async function getAllEmpenho(
+  page: number = 0,
+  size: number = 50
+): Promise<ApiResult<PaginatedResponse<EmpenhoDto>>> {
   try {
-    const res = await apiInstance.get<EmpenhoDto[]>('/Empenho');
-    return { data: res.data || [], status: res.status, errorMessage: null };
+    const res = await apiInstance.get<PaginatedResponse<EmpenhoDto>>('/Empenho', {
+      params: { page, size },
+    });
+    return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
 
@@ -173,10 +183,15 @@ export async function findFinancialPlanningByNumber(numberId: number): Promise<A
   } catch (e) { return handleError(e); }
 }
 
-export async function getAllFinancialPlanning(): Promise<ApiResult<FinancialPlanningDto[]>> {
+export async function getAllFinancialPlanning(
+  page: number = 0,
+  size: number = 50
+): Promise<ApiResult<PaginatedResponse<FinancialPlanningDto>>> {
   try {
-    const res = await apiInstance.get<FinancialPlanningDto[]>('/FinancialPlanning');
-    return { data: res.data || [], status: res.status, errorMessage: null };
+    const res = await apiInstance.get<PaginatedResponse<FinancialPlanningDto>>('/FinancialPlanning', {
+      params: { page, size },
+    });
+    return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
 
@@ -207,10 +222,15 @@ export async function findEmpresaByCnpj(cnpj: string): Promise<ApiResult<Empresa
   } catch (e) { return handleError(e); }
 }
 
-export async function getAllEmpresa(): Promise<ApiResult<EmpresaDto[]>> {
+export async function getAllEmpresa(
+  page: number = 0,
+  size: number = 50
+): Promise<ApiResult<PaginatedResponse<EmpresaDto>>> {
   try {
-    const res = await apiInstance.get<EmpresaDto[]>('/Empresa');
-    return { data: res.data || [], status: res.status, errorMessage: null };
+    const res = await apiInstance.get<PaginatedResponse<EmpresaDto>>('/Empresa', {
+      params: { page, size },
+    });
+    return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
 

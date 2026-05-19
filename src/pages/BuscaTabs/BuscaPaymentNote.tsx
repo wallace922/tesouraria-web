@@ -4,6 +4,7 @@ import Input from '../../components/Input';
 import Alert from '../../components/Alert';
 import Select from '../../components/Select';
 import SearchResultTable from '../../components/SearchResultTable';
+import PaginationControls from '../../components/PaginationControls';
 import { findNpByNumeroEAno, getAllNp, updatePaymentNote } from '../../services/api';
 import type { PaymentNoteDto, TaxDto } from '../../types';
 import { formatCNPJ, toInputDate } from '../../lib/utils';
@@ -30,14 +31,18 @@ export default function BuscaPaymentNote() {
 
   const {
     loading: searching, error, setError,
-    allResults,
-    showAll,
+    allResults, setAllResults,
+    showAll, setShowAll,
+    currentPage, totalPages, totalElements,
     found, setFound,
     editing, setEditing,
-    saving, saveError,
-    success,
+    saving, saveError, setSaveError,
+    success, setSuccess,
     handleSearchRequest,
     handleGetAllRequest,
+    handleNextPage,
+    handlePreviousPage,
+    handleGoToPage,
     handleSaveRequest,
   } = useEntitySearch<PaymentNoteDto>();
 
@@ -70,7 +75,11 @@ export default function BuscaPaymentNote() {
       value: parseFloat(value),
       status,
     };
-    handleSaveRequest(() => updatePaymentNote(payload), 'Payment Note atualizada!', handleGetAll);
+    handleSaveRequest(
+      () => updatePaymentNote(payload),
+      'Payment Note atualizada!',
+      () => handleGetAllRequest(getAllNp)
+    );
   };
 
   const handleSearch = () => {
@@ -82,7 +91,7 @@ export default function BuscaPaymentNote() {
   };
 
   const handleGetAll = () => {
-    handleGetAllRequest(() => getAllNp());
+    handleGetAllRequest(getAllNp);
   };
 
   return (
@@ -90,8 +99,8 @@ export default function BuscaPaymentNote() {
       <div className="glass-panel p-5">
         <SectionTitle>Buscar Payment Note por Nº e Ano</SectionTitle>
         <div className="flex flex-wrap items-end gap-3">
-        <Input label="Nº NP" type="number" placeholder="2024001" value={sNumero} onChange={(e) => { setSNumero(e.target.value); setError(null); }} className="w-36" />
-        <Input label="Ano" type="number" placeholder="2024" value={sAno} onChange={(e) => { setSAno(e.target.value); setError(null); }} className="w-44" />
+        <Input label="Nº NP" type="number" placeholder="2024001" value={sNumero} onChange={(e) => { setSNumero(e.target.value); setError(null); setAllResults([]); setShowAll(false); }} className="w-36" />
+        <Input label="Ano" type="number" placeholder="2024" value={sAno} onChange={(e) => { setSAno(e.target.value); setError(null); setAllResults([]); setShowAll(false); }} className="w-44" />
         <Button variant="ghost" size="md" loading={searching} onClick={handleSearch}>🔍 Buscar</Button>
         <Button variant="ghost" size="md" loading={searching} onClick={handleGetAll}>🔍 Buscar Todos</Button>
         </div>
@@ -143,13 +152,34 @@ export default function BuscaPaymentNote() {
             <Button onClick={handleSave} loading={saving}>Salvar Alterações</Button>
             <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
           </div>
-          {saveError && <Alert variant="error" message={saveError} />}
-          {success && <Alert variant="success" message={success} />}
+          {saveError && <Alert variant="error" message={saveError} onClose={() => setSaveError(null)} />}
+          {success && <Alert variant="success" message={success} onClose={() => setSuccess(null)} />}
         </div>
       )}
 
       {showAll && !editing && allResults.length > 0 && (
-        <SearchResultTable data={allResults} onEdit={handleEdit} />
+        <>
+          <div className="glass-panel overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/10">
+              <h3 className="text-amber-400 text-xs uppercase tracking-widest">
+                Resultados ({allResults.length})
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <SearchResultTable data={allResults} onEdit={handleEdit} />
+            </div>
+          </div>
+
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            loading={searching}
+            onPrevious={() => handlePreviousPage(getAllNp)}
+            onNext={() => handleNextPage(getAllNp)}
+            onGoToPage={(page) => handleGoToPage(page, getAllNp)}
+          />
+        </>
       )}
     </div>
   );

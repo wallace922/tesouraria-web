@@ -58,7 +58,9 @@ export default function Dashboard() {
   const [listError, setListError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
   const [pageSize] = useState(50);
+  const [pageInput, setPageInput] = useState('');
 
   // Quick-save form
   const [quickNp, setQuickNp] = useState('');
@@ -84,12 +86,21 @@ export default function Dashboard() {
     if (result.data) {
       setRows(result.data.content);
       setTotalPages(result.data.totalPages);
+      setTotalElements(result.data.totalElements);
       setCurrentPage(result.data.number);
     } else {
       setListError(result.errorMessage ?? 'Erro ao carregar registros.');
     }
     setLoadingList(false);
   }
+
+  const handleGoToPage = () => {
+    const page = parseInt(pageInput, 10) - 1;
+    if (!isNaN(page) && page >= 0 && page < totalPages) {
+      loadAll(page);
+      setPageInput('');
+    }
+  };
 
   useEffect(() => { loadAll(0); }, []);
 
@@ -258,37 +269,10 @@ export default function Dashboard() {
 
       {/* ── Main Table ─────────────────────────────────────────────────────── */}
       <div className="px-6 py-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4">
           <h2 className="text-amber-400 font-bold uppercase tracking-widest text-xs">
             ▶ Vínculos Registrados
-            <span className="ml-3 text-stone-500 font-normal normal-case text-xs">
-              {loadingList ? 'Carregando...' : `${rows.length} registro(s)`}
-            </span>
           </h2>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => loadAll(currentPage - 1)}
-              disabled={currentPage === 0 || loadingList}
-            >
-              ← Anterior
-            </Button>
-            <span className="text-xs text-stone-500">
-              Página {currentPage + 1} de {totalPages || 1}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => loadAll(currentPage + 1)}
-              disabled={currentPage >= totalPages - 1 || loadingList}
-            >
-              Próxima →
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => loadAll(currentPage)} loading={loadingList} className="ml-2">
-              Recarregar
-            </Button>
-          </div>
         </div>
 
         {listError && <Alert variant="error" message={listError} onClose={() => setListError(null)} />}
@@ -306,28 +290,29 @@ export default function Dashboard() {
             <p className="text-sm tracking-widest uppercase">Nenhum registro encontrado.</p>
           </div>
         ) : (
-          <div className="overflow-hidden glass-panel p-4">
-            <table className="min-w-full text-xs divide-y divide-white/5">
-              <thead>
-                <tr className="border-b border-stone-600 text-[10px] uppercase tracking-widest text-stone-400 bg-stone-900/40">
-                  <th className="px-3 py-3 text-left border-r border-white/10" colSpan={6}>
-                    <span className="text-amber-500">■</span> Nota de Pagamento
-                  </th>
-                  <th className="px-3 py-3 text-left border-r border-white/10" colSpan={1}>
-                    <span className="text-amber-500">■</span> Tributação
-                  </th>
-                  <th className="px-3 py-3 text-left border-r border-white/10" colSpan={1}>
-                    <span className="text-amber-500">■</span> Vínculo
-                  </th>
-                  <th className="px-3 py-3 text-left border-r border-white/10" colSpan={4}>
-                    <span className="text-amber-500">■</span> Empenho
-                  </th>
-                  <th className="px-3 py-3 text-left border-r border-white/10" colSpan={4}>
-                    <span className="text-amber-500">■</span> PF
-                  </th>
-                  <th className="px-3 py-3 text-center" colSpan={1}>Ações</th>
-                </tr>
-                <tr className="border-b border-white/10 text-[10px] uppercase tracking-widest text-stone-500 bg-stone-900/20">
+          <>
+            <div className="overflow-hidden glass-panel p-4">
+              <table className="min-w-full text-xs divide-y divide-white/5">
+                <thead>
+                  <tr className="border-b border-stone-600 text-[10px] uppercase tracking-widest text-stone-400 bg-stone-900/40">
+                    <th className="px-3 py-3 text-left border-r border-white/10" colSpan={6}>
+                      <span className="text-amber-500">■</span> Nota de Pagamento
+                    </th>
+                    <th className="px-3 py-3 text-left border-r border-white/10" colSpan={1}>
+                      <span className="text-amber-500">■</span> Tributação
+                    </th>
+                    <th className="px-3 py-3 text-left border-r border-white/10" colSpan={1}>
+                      <span className="text-amber-500">■</span> Vínculo
+                    </th>
+                    <th className="px-3 py-3 text-left border-r border-white/10" colSpan={4}>
+                      <span className="text-amber-500">■</span> Empenho
+                    </th>
+                    <th className="px-3 py-3 text-left border-r border-white/10" colSpan={4}>
+                      <span className="text-amber-500">■</span> PF
+                    </th>
+                    <th className="px-3 py-3 text-center" colSpan={1}>Ações</th>
+                  </tr>
+                  <tr className="border-b border-white/10 text-[10px] uppercase tracking-widest text-stone-500 bg-stone-900/20">
                   <th className="px-3 py-2 text-left">Nº NP</th>
                   <th className="px-3 py-2 text-left">Data Liq.</th>
                   <th className="px-3 py-2 text-left">CNPJ</th>
@@ -508,6 +493,44 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
+
+          <div className="flex items-center justify-between mt-4 px-2">
+            <span className="text-xs text-stone-500">
+              Página {currentPage + 1} de {totalPages || 1}
+              {totalElements > 0 && ` (${totalElements} registros)`}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost" size="sm"
+                onClick={() => loadAll(currentPage - 1)}
+                disabled={currentPage === 0 || loadingList}
+              >
+                ← Anterior
+              </Button>
+              <Input
+                placeholder="Pág"
+                value={pageInput}
+                onChange={(e) => setPageInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleGoToPage()}
+                className="w-16 text-center text-xs"
+              />
+              <Button
+                variant="ghost" size="sm"
+                onClick={handleGoToPage}
+                disabled={loadingList}
+              >
+                Ir
+              </Button>
+              <Button
+                variant="ghost" size="sm"
+                onClick={() => loadAll(currentPage + 1)}
+                disabled={currentPage >= totalPages - 1 || loadingList}
+              >
+                Próxima →
+              </Button>
+            </div>
+          </div>
+          </>
         )}
       </div>
     </PageShell>

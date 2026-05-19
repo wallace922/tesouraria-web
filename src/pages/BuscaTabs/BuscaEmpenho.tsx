@@ -3,6 +3,7 @@ import Button from '../../components/Button';
 import Input from '../../components/Input';
 import Alert from '../../components/Alert';
 import EditIconButton from '../../components/EditIconButton';
+import PaginationControls from '../../components/PaginationControls';
 import { findEmpenhoByNumeroEAno, getAllEmpenho, updateEmpenho } from '../../services/api';
 import type { EmpenhoDto } from '../../types';
 import { SectionTitle, TableContainer } from './Shared';
@@ -11,7 +12,7 @@ import { useEntitySearch } from '../../hooks/useEntitySearch';
 export default function BuscaEmpenho() {
   const [sNumero, setSNumero] = useState('');
   const [sAno, setSAno]       = useState('');
-  
+
   const [numero, setNumero] = useState('');
   const [ano, setAno] = useState('');
   const [internalPlan, setInternalPlan] = useState('');
@@ -21,6 +22,7 @@ export default function BuscaEmpenho() {
     loading, error, setError,
     allResults, setAllResults,
     showAll, setShowAll,
+    currentPage, totalPages, totalElements,
     found, setFound,
     editing, setEditing,
     saving, saveError, setSaveError,
@@ -28,6 +30,9 @@ export default function BuscaEmpenho() {
     resetSearch,
     handleSearchRequest,
     handleGetAllRequest,
+    handleNextPage,
+    handlePreviousPage,
+    handleGoToPage,
     handleSaveRequest
   } = useEntitySearch<EmpenhoDto>();
 
@@ -42,17 +47,17 @@ export default function BuscaEmpenho() {
 
   const handleSave = () => {
     if (!found) return;
-    const payload: EmpenhoDto = { 
-      ...found, 
-      numero: parseInt(numero, 10), 
-      ano: parseInt(ano, 10), 
-      internalPlan, 
-      nature: parseInt(nature, 10) 
+    const payload: EmpenhoDto = {
+      ...found,
+      numero: parseInt(numero, 10),
+      ano: parseInt(ano, 10),
+      internalPlan,
+      nature: parseInt(nature, 10)
     };
     handleSaveRequest(
       () => updateEmpenho(payload),
       'Empenho atualizado com sucesso!',
-      handleGetAll
+      () => handleGetAllRequest(getAllEmpenho)
     );
   };
 
@@ -69,7 +74,7 @@ export default function BuscaEmpenho() {
   };
 
   const handleGetAll = () => {
-    handleGetAllRequest(() => getAllEmpenho());
+    handleGetAllRequest(getAllEmpenho);
   };
 
   return (
@@ -105,32 +110,44 @@ export default function BuscaEmpenho() {
       )}
 
       {showAll && !editing && allResults.length > 0 && (
-        <TableContainer title="Resultados" count={allResults.length}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-stone-500 text-xs uppercase border-b border-white/10">
-                <th className="py-2 pr-4">Nº</th>
-                <th className="py-2 pr-4">Ano</th>
-                <th className="py-2 pr-4">Plano Interno</th>
-                <th className="py-2 pr-4">Natureza</th>
-                <th className="py-2 pr-4 w-8">✏️</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allResults.map((e, i) => (
-                <tr key={i} className="border-b border-stone-800 hover:bg-stone-800/30">
-                  <td className="py-2 pr-4 text-amber-300 font-mono">{e.numero}</td>
-                  <td className="py-2 pr-4 text-gray-300">{e.ano}</td>
-                  <td className="py-2 pr-4 text-gray-300">{e.internalPlan}</td>
-                  <td className="py-2 pr-4 text-stone-500">{e.nature}</td>
-                  <td className="py-2 pr-4 w-8">
-                    <EditIconButton onClick={() => handleEdit(e)} />
-                  </td>
+        <>
+          <TableContainer title="Resultados" count={allResults.length}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-stone-500 text-xs uppercase border-b border-white/10">
+                  <th className="py-2 pr-4">Nº</th>
+                  <th className="py-2 pr-4">Ano</th>
+                  <th className="py-2 pr-4">Plano Interno</th>
+                  <th className="py-2 pr-4">Natureza</th>
+                  <th className="py-2 pr-4 w-8">✏️</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableContainer>
+              </thead>
+              <tbody>
+                {allResults.map((e, i) => (
+                  <tr key={i} className="border-b border-stone-800 hover:bg-stone-800/30">
+                    <td className="py-2 pr-4 text-amber-300 font-mono">{e.numero}</td>
+                    <td className="py-2 pr-4 text-gray-300">{e.ano}</td>
+                    <td className="py-2 pr-4 text-gray-300">{e.internalPlan}</td>
+                    <td className="py-2 pr-4 text-stone-500">{e.nature}</td>
+                    <td className="py-2 pr-4 w-8">
+                      <EditIconButton onClick={() => handleEdit(e)} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableContainer>
+
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            loading={loading}
+            onPrevious={() => handlePreviousPage(getAllEmpenho)}
+            onNext={() => handleNextPage(getAllEmpenho)}
+            onGoToPage={(page) => handleGoToPage(page, getAllEmpenho)}
+          />
+        </>
       )}
     </div>
   );
