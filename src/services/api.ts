@@ -43,18 +43,16 @@ function handleError<T>(error: unknown): ApiResult<T> {
 
 // ── PaymentNoteEmpenho ────────────────────────────────────────────────────────
 
-export interface PaginatedResponse<T> {
+export interface PageDto<T> {
   content: T[];
-  totalPages: number;
+  pageNumber: number;
+  pageSize: number;
   totalElements: number;
-  number: number;
-  first: boolean;
-  last: boolean;
-  pageable: {
-    pageNumber: number;
-    pageSize: number;
-  };
+  totalPages: number;
+  isLast: boolean;
 }
+
+export type PaginatedResponse<T> = PageDto<T>;
 
 export async function getAllPaymentEmpenhos(
   page: number = 0,

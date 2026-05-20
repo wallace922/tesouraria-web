@@ -87,7 +87,7 @@ export default function Dashboard() {
       setRows(result.data.content);
       setTotalPages(result.data.totalPages);
       setTotalElements(result.data.totalElements);
-      setCurrentPage(result.data.number);
+      setCurrentPage(result.data.pageNumber);
     } else {
       setListError(result.errorMessage ?? 'Erro ao carregar registros.');
     }
@@ -304,7 +304,7 @@ export default function Dashboard() {
                     <th className="px-3 py-3 text-left border-r border-white/10" colSpan={1}>
                       <span className="text-amber-500">■</span> Vínculo
                     </th>
-                    <th className="px-3 py-3 text-left border-r border-white/10" colSpan={4}>
+                    <th className="px-3 py-3 text-left border-r border-white/10" colSpan={5}>
                       <span className="text-amber-500">■</span> Empenho
                     </th>
                     <th className="px-3 py-3 text-left border-r border-white/10" colSpan={4}>
@@ -323,6 +323,7 @@ export default function Dashboard() {
                   <th className="px-3 py-2 text-left">Vínculo</th>
                   <th className="px-3 py-2 text-left">Nº Emp.</th>
                   <th className="px-3 py-2 text-left">Ano</th>
+                  <th className="px-3 py-2 text-left">Fonte Origem</th>
                   <th className="px-3 py-2 text-left">Plano Interno</th>
                   <th className="px-3 py-2 text-left border-r border-white/10">Natureza</th>
                   <th className="px-3 py-2 text-left">Nº PF</th>
@@ -430,6 +431,8 @@ export default function Dashboard() {
                             <span className="text-gray-300">{row.empenhoDto.ano}</span>
                           )}
                         </td>
+                        {/* Fonte Origem */}
+                        <td className="px-3 py-2.5 text-amber-300">{row.empenhoDto.fontDeOrigin}</td>
                         {/* Plano Interno */}
                         <td className="px-3 py-2.5 text-gray-400">{row.empenhoDto.internalPlan}</td>
                         {/* Natureza */}

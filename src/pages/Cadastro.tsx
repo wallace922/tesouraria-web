@@ -128,6 +128,7 @@ function FormEmpresa() {
 function FormEmpenho() {
   const [numero, setNumero] = useState('');
   const [ano, setAno] = useState('');
+  const [fontDeOrigin, setFontDeOrigin] = useState('');
   const [internalPlan, setInternalPlan] = useState('');
   const [nature, setNature] = useState('');
   const [loading, setLoading] = useState(false);
@@ -136,7 +137,7 @@ function FormEmpenho() {
 
   async function handleSave() {
     setError(null); setSuccess(null);
-    if (!numero || !ano || !internalPlan || !nature) {
+    if (!numero || !ano || !fontDeOrigin || !internalPlan || !nature) {
       setError('Todos os campos são obrigatórios.');
       return;
     }
@@ -144,15 +145,16 @@ function FormEmpenho() {
     const dto: EmpenhoDto = {
       numero: parseInt(numero, 10),
       ano: parseInt(ano, 10),
+      fontDeOrigin: parseInt(fontDeOrigin, 10),
       internalPlan: internalPlan.trim(),
       nature: parseInt(nature, 10),
     };
     const result = await saveEmpenho(dto);
     if (result.data) {
       setSuccess(result.data);
-      setNumero(''); setAno(''); setInternalPlan(''); setNature('');
+      setNumero(''); setAno(''); setFontDeOrigin(''); setInternalPlan(''); setNature('');
     } else {
-      setError(result.errorMessage ?? 'Erro ao salvar empenho.');
+      setError(result.errorMessage ?? 'Erro ao salvar.');
     }
     setLoading(false);
   }
@@ -164,6 +166,7 @@ function FormEmpenho() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl">
           <Input label="Nº Empenho" type="number" placeholder="12345" value={numero} onChange={(e) => setNumero(e.target.value)} />
           <Input label="Ano" type="number" placeholder="2024" value={ano} onChange={(e) => setAno(e.target.value)} />
+          <Input label="Fonte de Origem" type="number" placeholder="100" value={fontDeOrigin} onChange={(e) => setFontDeOrigin(e.target.value)} />
           <Input label="Plano Interno" placeholder="PI-001" value={internalPlan} onChange={(e) => setInternalPlan(e.target.value)} />
           <Input label="Natureza" type="number" placeholder="339030" value={nature} onChange={(e) => setNature(e.target.value)} />
         </div>
@@ -177,6 +180,7 @@ function FormEmpenho() {
           <>
             <Field label="Nº Empenho" value={d.numero} />
             <Field label="Ano" value={d.ano} />
+            <Field label="Fonte de Origem" value={d.fontDeOrigin} />
             <Field label="Plano Interno" value={d.internalPlan} />
             <Field label="Natureza" value={d.nature} />
           </>

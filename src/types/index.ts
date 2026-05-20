@@ -1,6 +1,7 @@
 export interface EmpenhoDto {
   numero: number;
   ano: number;
+  fontDeOrigin: number;
   internalPlan: string;
   nature: number;
 }

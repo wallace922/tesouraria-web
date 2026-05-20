@@ -63,7 +63,7 @@ export function useEntitySearch<T>() {
       setAllResults(res.data.content);
       setTotalPages(res.data.totalPages);
       setTotalElements(res.data.totalElements);
-      setCurrentPage(res.data.number);
+      setCurrentPage(res.data.pageNumber);
       setShowAll(true);
     } else {
       setError('Nenhum registro encontrado.');
@@ -80,7 +80,7 @@ export function useEntitySearch<T>() {
     const res = await request(newPage, pageSize);
     if (res.data && res.data.content.length > 0) {
       setAllResults(res.data.content);
-      setCurrentPage(res.data.number);
+      setCurrentPage(res.data.pageNumber);
       setTotalPages(res.data.totalPages);
       setTotalElements(res.data.totalElements);
     } else {

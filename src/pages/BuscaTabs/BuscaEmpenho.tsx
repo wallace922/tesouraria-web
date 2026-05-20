@@ -15,6 +15,7 @@ export default function BuscaEmpenho() {
 
   const [numero, setNumero] = useState('');
   const [ano, setAno] = useState('');
+  const [fontDeOrigin, setFontDeOrigin] = useState('');
   const [internalPlan, setInternalPlan] = useState('');
   const [nature, setNature] = useState('');
 
@@ -40,6 +41,7 @@ export default function BuscaEmpenho() {
     setFound(e);
     setNumero(String(e.numero));
     setAno(String(e.ano));
+    setFontDeOrigin(String(e.fontDeOrigin));
     setInternalPlan(e.internalPlan);
     setNature(String(e.nature));
     setEditing(true);
@@ -51,6 +53,7 @@ export default function BuscaEmpenho() {
       ...found,
       numero: parseInt(numero, 10),
       ano: parseInt(ano, 10),
+      fontDeOrigin: parseInt(fontDeOrigin, 10),
       internalPlan,
       nature: parseInt(nature, 10)
     };
@@ -97,6 +100,7 @@ export default function BuscaEmpenho() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             <Input label="Nº Empenho" type="number" value={numero} onChange={e => setNumero(e.target.value)} />
             <Input label="Ano" type="number" value={ano} onChange={e => setAno(e.target.value)} />
+            <Input label="Fonte de Origem" type="number" value={fontDeOrigin} onChange={e => setFontDeOrigin(e.target.value)} />
             <Input label="Plano Interno" value={internalPlan} onChange={e => setInternalPlan(e.target.value)} />
             <Input label="Natureza" type="number" value={nature} onChange={e => setNature(e.target.value)} />
           </div>
@@ -119,6 +123,7 @@ export default function BuscaEmpenho() {
                   <th className="py-2 pr-4">Ano</th>
                   <th className="py-2 pr-4">Plano Interno</th>
                   <th className="py-2 pr-4">Natureza</th>
+                  <th className="py-2 pr-4">Fonte Origem</th>
                   <th className="py-2 pr-4 w-8">✏️</th>
                 </tr>
               </thead>
@@ -129,6 +134,7 @@ export default function BuscaEmpenho() {
                     <td className="py-2 pr-4 text-gray-300">{e.ano}</td>
                     <td className="py-2 pr-4 text-gray-300">{e.internalPlan}</td>
                     <td className="py-2 pr-4 text-stone-500">{e.nature}</td>
+                    <td className="py-2 pr-4 text-amber-300">{e.fontDeOrigin}</td>
                     <td className="py-2 pr-4 w-8">
                       <EditIconButton onClick={() => handleEdit(e)} />
                     </td>
