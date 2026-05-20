@@ -363,94 +363,94 @@ function FormPaymentNote() {
     <div className="space-y-6">
       <div className="glass-panel p-5 space-y-6">
         <div>
-        <SectionTitle>Dados Principais</SectionTitle>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-2xl">
-          <Input label="Nº NP" type="number" placeholder="2024001" value={numeroNp} onChange={(e) => setNumeroNp(e.target.value)} />
-          <Input label="Data Liquidação" type="date" value={dataLiq} onChange={(e) => setDataLiq(e.target.value)} />
-          <Input label="Doc. Origem" placeholder="DOC-001" value={docOrigin} onChange={(e) => setDocOrigin(e.target.value)} />
-          <Input label="NS" placeholder="NS-001" value={ns} onChange={(e) => setNs(e.target.value)} />
-          <Input label="Valor (R$)" type="number" step="0.01" placeholder="0.00" value={value} onChange={(e) => setValue(e.target.value)} />
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold uppercase tracking-widest text-stone-400">Status</label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as PaymentNoteDto['status'])}
-              className="bg-stone-900 border border-stone-600 text-gray-200 text-sm rounded-md px-3 py-2 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
-            >
-              <option value="A_PAGAR">A Pagar</option>
-              <option value="PAGA">Paga</option>
-              <option value="CANCELADA">Cancelada</option>
-            </select>
+          <SectionTitle>Dados Principais</SectionTitle>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-2xl">
+            <Input label="Nº NP" type="number" placeholder="2024001" value={numeroNp} onChange={(e) => setNumeroNp(e.target.value)} />
+            <Input label="Data Liquidação" type="date" value={dataLiq} onChange={(e) => setDataLiq(e.target.value)} />
+            <Input label="Doc. Origem" placeholder="DOC-001" value={docOrigin} onChange={(e) => setDocOrigin(e.target.value)} />
+            <Input label="NS" placeholder="NS-001" value={ns} onChange={(e) => setNs(e.target.value)} />
+            <Input label="Valor (R$)" type="number" step="0.01" placeholder="0.00" value={value} onChange={(e) => setValue(e.target.value)} />
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold uppercase tracking-widest text-stone-400">Status</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as PaymentNoteDto['status'])}
+                className="bg-stone-900 border border-stone-600 text-gray-200 text-sm rounded-md px-3 py-2 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
+              >
+                <option value="A_PAGAR">A Pagar</option>
+                <option value="PAGA">Paga</option>
+                <option value="CANCELADA">Cancelada</option>
+              </select>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Empresa via CNPJ */}
-      <div>
-        <SectionTitle>Empresa (Validação por CNPJ)</SectionTitle>
-        <div className="max-w-sm space-y-2">
-          <div className="flex items-end gap-3">
-            <Input
-              label="CNPJ da Empresa"
-              placeholder="XX.XXX.XXX/XXXX-XX"
-              value={cnpj}
-              onChange={(e) => handleCnpj(e.target.value)}
-              onBlur={handleCnpjBlur}
-              maxLength={18}
-              className="flex-1"
-              error={cnpjError ?? undefined}
-            />
-            {cnpjLoading && (
-              <span className="mb-2 text-stone-400 text-xs flex items-center gap-1">
-                <span className="inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
-                Buscando...
-              </span>
+        {/* Empresa via CNPJ */}
+        <div>
+          <SectionTitle>Empresa (Validação por CNPJ)</SectionTitle>
+          <div className="max-w-sm space-y-2">
+            <div className="flex items-end gap-3">
+              <Input
+                label="CNPJ da Empresa"
+                placeholder="XX.XXX.XXX/XXXX-XX"
+                value={cnpj}
+                onChange={(e) => handleCnpj(e.target.value)}
+                onBlur={handleCnpjBlur}
+                maxLength={18}
+                className="flex-1"
+                error={cnpjError ?? undefined}
+              />
+              {cnpjLoading && (
+                <span className="mb-2 text-stone-400 text-xs flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                  Buscando...
+                </span>
+              )}
+            </div>
+            {cnpjValid === true && (
+              <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono">
+                <span>✔</span>
+                <span>{empresaNome}</span>
+              </div>
             )}
           </div>
-          {cnpjValid === true && (
-            <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono">
-              <span>✔</span>
-              <span>{empresaNome}</span>
-            </div>
-          )}
         </div>
-      </div>
 
-      {/* Tributação */}
-      <div>
-        <SectionTitle>Tributação</SectionTitle>
-        <div className="space-y-4 max-w-2xl">
-          <div className="flex flex-col gap-1 w-48">
-            <label className="text-xs font-semibold uppercase tracking-widest text-stone-400">Tipo de Tributação</label>
-            <select
-              value={taxTipo}
-              onChange={(e) => setTaxTipo(e.target.value as TaxDto['tipo'])}
-              className="bg-stone-900 border border-stone-600 text-gray-200 text-sm rounded-md px-3 py-2 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
-            >
-              <option value="OPTANTE">Optante</option>
-              <option value="NAO_OPTANTE">Não Optante</option>
-            </select>
+        {/* Tributação */}
+        <div>
+          <SectionTitle>Tributação</SectionTitle>
+          <div className="space-y-4 max-w-2xl">
+            <div className="flex flex-col gap-1 w-48">
+              <label className="text-xs font-semibold uppercase tracking-widest text-stone-400">Tipo de Tributação</label>
+              <select
+                value={taxTipo}
+                onChange={(e) => setTaxTipo(e.target.value as TaxDto['tipo'])}
+                className="bg-stone-900 border border-stone-600 text-gray-200 text-sm rounded-md px-3 py-2 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
+              >
+                <option value="OPTANTE">Optante</option>
+                <option value="NAO_OPTANTE">Não Optante</option>
+              </select>
+            </div>
+
+            {taxTipo === 'NAO_OPTANTE' && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 animate-fadeIn">
+                <Input label="Cód. EFD" type="number" placeholder="5929" value={codEfd} onChange={(e) => setCodEfd(e.target.value)} />
+                <Input label="IR (R$)" type="number" step="0.01" placeholder="0.00" value={ir} onChange={(e) => setIr(e.target.value)} />
+                <Input label="CSLL (R$)" type="number" step="0.01" placeholder="0.00" value={csll} onChange={(e) => setCsll(e.target.value)} />
+                <Input label="COFINS (R$)" type="number" step="0.01" placeholder="0.00" value={cofins} onChange={(e) => setCofins(e.target.value)} />
+                <Input label="PIS/Pasep (R$)" type="number" step="0.01" placeholder="0.00" value={pisPasep} onChange={(e) => setPisPasep(e.target.value)} />
+                <Input label="DARF (R$)" type="number" step="0.01" placeholder="0.00" value={darf} onChange={(e) => setDarf(e.target.value)} />
+              </div>
+            )}
           </div>
-
-          {taxTipo === 'NAO_OPTANTE' && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 animate-fadeIn">
-              <Input label="Cód. EFD" type="number" placeholder="5929" value={codEfd} onChange={(e) => setCodEfd(e.target.value)} />
-              <Input label="IR (R$)" type="number" step="0.01" placeholder="0.00" value={ir} onChange={(e) => setIr(e.target.value)} />
-              <Input label="CSLL (R$)" type="number" step="0.01" placeholder="0.00" value={csll} onChange={(e) => setCsll(e.target.value)} />
-              <Input label="COFINS (R$)" type="number" step="0.01" placeholder="0.00" value={cofins} onChange={(e) => setCofins(e.target.value)} />
-              <Input label="PIS/Pasep (R$)" type="number" step="0.01" placeholder="0.00" value={pisPasep} onChange={(e) => setPisPasep(e.target.value)} />
-              <Input label="DARF (R$)" type="number" step="0.01" placeholder="0.00" value={darf} onChange={(e) => setDarf(e.target.value)} />
-            </div>
-          )}
         </div>
-      </div>
 
-      <div className="space-y-3">
-        {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
-        <Button variant="primary" loading={loading} disabled={saveDisabled} onClick={handleSave}>
-          Cadastrar Payment Note
-        </Button>
-      </div>
+        <div className="space-y-3">
+          {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
+          <Button variant="primary" loading={loading} disabled={saveDisabled} onClick={handleSave}>
+            Cadastrar Payment Note
+          </Button>
+        </div>
       </div>
 
       {success && (

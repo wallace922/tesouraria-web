@@ -74,6 +74,18 @@ export default function BuscaPaymentNote() {
       ns,
       value: parseFloat(value),
       status,
+      tax: taxTipo === 'NAO_OPTANTE' ? {
+        tipo: 'NAO_OPTANTE',
+        codEfd: parseInt(codEfd, 10) || 0,
+        ir: parseFloat(ir) || 0,
+        csll: parseFloat(csll) || 0,
+        cofins: parseFloat(cofins) || 0,
+        pisPasep: parseFloat(pisPasep) || 0,
+        darf: parseFloat(darf) || 0,
+      } : taxTipo === 'OPTANTE' ? {
+        tipo: 'OPTANTE',
+        codEfd: 0, ir: 0, csll: 0, cofins: 0, pisPasep: 0, darf: 0
+      } : found.tax,
     };
     handleSaveRequest(
       () => updatePaymentNote(payload),
