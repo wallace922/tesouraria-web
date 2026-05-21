@@ -50,6 +50,19 @@ function StatusBadge({ status }: { status: 'CANCELADA' | 'PAGA' | 'A_PAGAR' }) {
   );
 }
 
+function extractNpYear(dataLiquidacao: string): number | null {
+  if (!dataLiquidacao) return null;
+  if (dataLiquidacao.includes('/')) {
+    const parts = dataLiquidacao.split('/');
+    return parts.length === 3 ? parseInt(parts[2], 10) : null;
+  }
+  if (dataLiquidacao.includes('-')) {
+    const parts = dataLiquidacao.split('-');
+    return parts.length >= 1 ? parseInt(parts[0], 10) : null;
+  }
+  return null;
+}
+
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -195,6 +208,11 @@ export default function Dashboard() {
     const fpNum = editState.numeroFP ? parseInt(editState.numeroFP, 10) : null;
     const vinculoValor = editState.valorVinculo ? parseFloat(editState.valorVinculo) : originalRow.value;
 
+    const originalNpYear = extractNpYear(originalRow.paymentNoteBasicDto.dataLiquidacao);
+    const npAlterado = npNum !== originalRow.paymentNoteBasicDto.numeroNp || (npAno !== null && npAno !== originalNpYear);
+    const empAlterado = empNum !== originalRow.empenhoDto.numero || empAno !== originalRow.empenhoDto.ano;
+    const fpAlterado = fpNum !== (originalRow.financialPlanningBasicDto?.numberId ?? null);
+
     if (!npNum || !empNum || !empAno) {
       setRowErrors((prev) => ({ ...prev, [index]: 'Nº NP, Nº Empenho e Ano são obrigatórios.' }));
       return;
@@ -202,16 +220,25 @@ export default function Dashboard() {
 
     setConfirmingMap((prev) => ({ ...prev, [index]: true }));
 
-    const [npResult, empResult, fpResult] = await Promise.all([
-      findNpByNumeroEAno(npNum, npAno ?? (originalRow.paymentNoteBasicDto.dataLiquidacao.includes('/') ? parseInt(originalRow.paymentNoteBasicDto.dataLiquidacao.split('/')[2], 10) : parseInt(originalRow.paymentNoteBasicDto.dataLiquidacao.split('-')[0], 10))),
-      findEmpenhoByNumeroEAno(empNum, empAno),
-      fpNum ? findFinancialPlanningByNumber(fpNum) : Promise.resolve({ data: null, status: null, errorMessage: null }),
-    ]);
+    const npYearToUse = npAno ?? originalNpYear;
+    
+    // Buscar apenas se alterado
+    const npResult = npAlterado
+      ? await findNpByNumeroEAno(npNum, npYearToUse!)
+      : { data: originalRow.paymentNoteBasicDto, status: 200, errorMessage: null };
+      
+    const empResult = empAlterado
+      ? await findEmpenhoByNumeroEAno(empNum, empAno)
+      : { data: originalRow.empenhoDto, status: 200, errorMessage: null };
+      
+    const fpResult = fpAlterado && fpNum
+      ? await findFinancialPlanningByNumber(fpNum)
+      : { data: fpAlterado ? null : (originalRow.financialPlanningBasicDto ?? null), status: 200, errorMessage: null };
 
     const erros: string[] = [];
-    if (!npResult.data) erros.push(`NP nº ${npNum}`);
-    if (!empResult.data) erros.push(`Empenho nº ${empNum}/${empAno}`);
-    if (fpNum && !fpResult.data) erros.push(`Financial Planning nº ${fpNum}`);
+    if (npAlterado && !npResult.data) erros.push(`NP nº ${npNum}`);
+    if (empAlterado && !empResult.data) erros.push(`Empenho nº ${empNum}/${empAno}`);
+    if (fpAlterado && fpNum && !fpResult.data) erros.push(`Financial Planning nº ${fpNum}`);
 
     if (erros.length > 0) {
       setRowErrors((prev) => ({ ...prev, [index]: `Não encontrado(s): ${erros.join(', ')}` }));

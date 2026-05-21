@@ -175,9 +175,8 @@ export async function updateEmpenho(dto: EmpenhoDto): Promise<ApiResult<EmpenhoD
 
 export async function findFinancialPlanningByNumber(numberId: number): Promise<ApiResult<FinancialPlanningDto>> {
   try {
-    const res = await apiInstance.get<FinancialPlanningDto[] | FinancialPlanningDto>('/FinancialPlanning', { params: { numberId } });
-    const data = Array.isArray(res.data) ? res.data[0] : res.data;
-    return { data: data || null, status: res.status, errorMessage: null };
+    const res = await apiInstance.get<FinancialPlanningDto>('/FinancialPlanning/NumberId', { params: { numberId } });
+    return { data: res.data || null, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
 

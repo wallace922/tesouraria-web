@@ -74,7 +74,7 @@ export default function BuscaFinancialPlanning() {
   return (
     <div className="space-y-6">
       <div className="glass-panel p-5">
-        <SectionTitle>Buscar Financial Planning por Nº ID</SectionTitle>
+        <SectionTitle>Buscar Planejamento Financeiro (PF) por Nº ID</SectionTitle>
         <div className="flex flex-wrap items-end gap-3">
         <Input label="Nº ID" type="number" placeholder="1001" value={sId}
           onChange={(e) => { setSId(e.target.value); setError(null); setAllResults([]); setShowAll(false); }}
@@ -89,7 +89,7 @@ export default function BuscaFinancialPlanning() {
 
       {editing && found && (
         <div className="glass-panel p-5 animate-fadeIn mt-6 max-w-2xl">
-          <SectionTitle>Atualizar Financial Planning</SectionTitle>
+          <SectionTitle>Atualizar Planejamento Financeiro (PF)</SectionTitle>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             <Input label="Nº ID" type="number" value={numberId} onChange={e => setNumberId(e.target.value)} />
             <Input label="Data" type="date" value={data} onChange={e => setData(e.target.value)} />
