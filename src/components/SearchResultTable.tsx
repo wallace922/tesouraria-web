@@ -60,16 +60,7 @@ export default function SearchResultTable({ data, onEdit }: SearchResultTablePro
               {isExpanded && (
                 <tr key={`detail-${i}`} className="bg-stone-900/40 border-b border-stone-700">
                   <td colSpan={7} className="px-3 py-3">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-1">
-                        <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">
-                          <span className="text-amber-500 mr-1">■</span>Informações
-                        </p>
-                        <div className="flex flex-col gap-1 text-xs">
-                          <div><span className="text-stone-500">Doc. Origem:</span> <span className="text-gray-300 ml-1">{np.docOrigin}</span></div>
-                          <div><span className="text-stone-500">CNPJ:</span> <span className="text-gray-300 font-mono ml-1">{np.empresa?.cnpj ? formatCNPJ(np.empresa.cnpj) : '—'}</span></div>
-                        </div>
-                      </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">
                           <span className="text-amber-500 mr-1">■</span>Tributação
