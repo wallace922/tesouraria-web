@@ -33,7 +33,6 @@ export interface PaymentNoteDto {
   dataLiquidacao: string;
   empresa: EmpresaDto;
   docOrigin: string;
-  ns: string;
   value: number;
   status: 'CANCELADA' | 'PAGA' | 'A_PAGAR';
   tax: TaxDto | null;

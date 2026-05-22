@@ -18,7 +18,6 @@ export default function SearchResultTable({ data, onEdit }: SearchResultTablePro
           <th className="py-2 pr-3">Empresa</th>
           <th className="py-2 pr-3">CNPJ</th>
           <th className="py-2 pr-3">Doc. Origem</th>
-          <th className="py-2 pr-3">NS</th>
           <th className="py-2 pr-3">Valor</th>
           <th className="py-2 pr-3">Status</th>
           <th className="py-2 pr-3">Taxa</th>
@@ -40,7 +39,6 @@ export default function SearchResultTable({ data, onEdit }: SearchResultTablePro
               {np.empresa?.cnpj ? formatCNPJ(np.empresa.cnpj) : '—'}
             </td>
             <td className="py-2 pr-3 text-stone-500">{np.docOrigin}</td>
-            <td className="py-2 pr-3 text-stone-500">{np.ns}</td>
             <td className="py-2 pr-3 text-amber-300">{formatCurrency(np.value)}</td>
             <td className="py-2 pr-3 text-stone-500">{np.status}</td>
             <td className="py-2 pr-3 text-stone-500">{np.tax?.tipo || '—'}</td>

@@ -5,10 +5,10 @@ import Alert from '../../components/Alert';
 import Select from '../../components/Select';
 import SearchResultTable from '../../components/SearchResultTable';
 import PaginationControls from '../../components/PaginationControls';
-import { findNpByNumeroEAno, getAllNp, updatePaymentNote } from '../../services/api';
+import { findNpByNumeroEAno, getAllNp, updatePaymentNote, findEmpresaByCnpj } from '../../services/api';
 import type { PaymentNoteDto, TaxDto } from '../../types';
-import { formatCNPJ, toInputDate } from '../../lib/utils';
-import { SectionTitle, ReadField } from './Shared';
+import { toInputDate } from '../../lib/utils';
+import { SectionTitle, applyCnpjMask } from './Shared';
 import { useEntitySearch } from '../../hooks/useEntitySearch';
 
 export default function BuscaPaymentNote() {
@@ -18,9 +18,13 @@ export default function BuscaPaymentNote() {
   const [numeroNp, setNumeroNp] = useState('');
   const [dataLiq, setDataLiq] = useState('');
   const [docOrigin, setDocOrigin] = useState('');
-  const [ns, setNs] = useState('');
   const [value, setValue] = useState('');
   const [status, setStatus] = useState<PaymentNoteDto['status']>('A_PAGAR');
+  const [cnpj, setCnpj] = useState('');
+  const [cnpjValid, setCnpjValid] = useState<boolean | null>(null);
+  const [cnpjLoading, setCnpjLoading] = useState(false);
+  const [cnpjError, setCnpjError] = useState<string | null>(null);
+  const [empresaNome, setEmpresaNome] = useState('');
   const [taxTipo, setTaxTipo] = useState<TaxDto['tipo'] | ''>('');
   const [codEfd, setCodEfd] = useState('');
   const [ir, setIr] = useState('');
@@ -51,9 +55,14 @@ export default function BuscaPaymentNote() {
     setNumeroNp(String(np.numeroNp));
     setDataLiq(toInputDate(np.dataLiquidacao));
     setDocOrigin(np.docOrigin);
-    setNs(np.ns);
     setValue(String(np.value));
     setStatus(np.status);
+
+    const cnpjAtual = np.empresa?.cnpj || '';
+    setCnpj(applyCnpjMask(cnpjAtual));
+    setEmpresaNome(np.empresa?.nome || '');
+    setCnpjValid(true);
+    setCnpjError(null);
     setTaxTipo(np.tax?.tipo ?? '');
     setCodEfd(String(np.tax?.codEfd ?? 0));
     setIr(String(np.tax?.ir ?? 0));
@@ -66,14 +75,18 @@ export default function BuscaPaymentNote() {
 
   const handleSave = () => {
     if (!found) return;
+    if (!cnpjValid) {
+      setSaveError('Valide o CNPJ antes de salvar (a empresa deve estar cadastrada).');
+      return;
+    }
     const payload: PaymentNoteDto = {
       ...found,
       numeroNp: parseInt(numeroNp, 10),
       dataLiquidacao: dataLiq,
       docOrigin,
-      ns,
       value: parseFloat(value),
       status,
+      empresa: { nome: empresaNome, cnpj: cnpj.replace(/\D/g, '') },
       tax: taxTipo === 'NAO_OPTANTE' ? {
         tipo: 'NAO_OPTANTE',
         codEfd: parseInt(codEfd, 10) || 0,
@@ -93,6 +106,40 @@ export default function BuscaPaymentNote() {
       () => handleGetAllRequest(getAllNp)
     );
   };
+
+  function handleCnpj(v: string) {
+    setCnpj(applyCnpjMask(v));
+    setCnpjValid(null);
+    setCnpjError(null);
+    setEmpresaNome('');
+  }
+
+  async function handleCnpjBlur() {
+    const raw = cnpj.replace(/\D/g, '');
+    if (raw.length !== 14) {
+      setCnpjError('CNPJ inválido. Deve conter 14 dígitos.');
+      setCnpjValid(false);
+      return;
+    }
+    
+    if (found && raw === found.empresa?.cnpj) {
+      setCnpjValid(true);
+      setEmpresaNome(found.empresa.nome);
+      return;
+    }
+
+    setCnpjLoading(true);
+    setCnpjError(null);
+    const result = await findEmpresaByCnpj(raw);
+    if (result.data) {
+      setCnpjValid(true);
+      setEmpresaNome(result.data.nome);
+    } else {
+      setCnpjValid(false);
+      setCnpjError('Empresa não encontrada para este CNPJ. Cadastre a empresa primeiro.');
+    }
+    setCnpjLoading(false);
+  }
 
   const handleSearch = () => {
     if (!sNumero || !sAno) { setError('Informe Nº NP e Ano.'); return; }
@@ -127,7 +174,6 @@ export default function BuscaPaymentNote() {
             <Input label="Nº NP" type="number" value={numeroNp} onChange={e => setNumeroNp(e.target.value)} />
             <Input label="Data Liq." type="date" value={dataLiq} onChange={e => setDataLiq(e.target.value)} />
             <Input label="Doc. Origem" value={docOrigin} onChange={e => setDocOrigin(e.target.value)} />
-            <Input label="NS" value={ns} onChange={e => setNs(e.target.value)} />
             <Input label="Valor" type="number" value={value} onChange={e => setValue(e.target.value)} />
             <Select label="Status" value={status} onChange={e => setStatus(e.target.value as PaymentNoteDto['status'])} options={[
               { value: 'A_PAGAR', label: 'A PAGAR' },
@@ -136,10 +182,32 @@ export default function BuscaPaymentNote() {
             ]} />
           </div>
 
-          <SectionTitle>Empresa</SectionTitle>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 max-w-xl">
-            <ReadField label="Nome" value={found.empresa?.nome || ''} />
-            <ReadField label="CNPJ" value={found.empresa?.cnpj ? formatCNPJ(found.empresa.cnpj) : ''} />
+          <SectionTitle>Empresa (Validação por CNPJ)</SectionTitle>
+          <div className="max-w-sm space-y-2 mb-6">
+            <div className="flex items-end gap-3">
+              <Input
+                label="CNPJ da Empresa"
+                placeholder="XX.XXX.XXX/XXXX-XX"
+                value={cnpj}
+                onChange={(e) => handleCnpj(e.target.value)}
+                onBlur={handleCnpjBlur}
+                maxLength={18}
+                className="flex-1"
+                error={cnpjError ?? undefined}
+              />
+              {cnpjLoading && (
+                <span className="mb-2 text-stone-400 text-xs flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                  Buscando...
+                </span>
+              )}
+            </div>
+            {cnpjValid === true && (
+              <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono">
+                <span>✔</span>
+                <span>{empresaNome}</span>
+              </div>
+            )}
           </div>
 
           <SectionTitle>Tributação</SectionTitle>
@@ -161,7 +229,7 @@ export default function BuscaPaymentNote() {
           </div>
 
           <div className="flex gap-4 mt-6">
-            <Button onClick={handleSave} loading={saving}>Salvar Alterações</Button>
+            <Button onClick={handleSave} loading={saving} disabled={cnpjValid === false || cnpjLoading}>Salvar Alterações</Button>
             <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
           </div>
           {saveError && <Alert variant="error" message={saveError} onClose={() => setSaveError(null)} />}

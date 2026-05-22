@@ -259,7 +259,6 @@ function FormPaymentNote() {
   const [numeroNp, setNumeroNp] = useState('');
   const [dataLiq, setDataLiq] = useState('');
   const [docOrigin, setDocOrigin] = useState('');
-  const [ns, setNs] = useState('');
   const [value, setValue] = useState('');
   const [status, setStatus] = useState<PaymentNoteDto['status']>('A_PAGAR');
   const [cnpj, setCnpj] = useState('');
@@ -307,7 +306,7 @@ function FormPaymentNote() {
 
   async function handleSave() {
     setError(null); setSuccess(null);
-    if (!numeroNp || !dataLiq || !docOrigin || !ns || !value) {
+    if (!numeroNp || !dataLiq || !docOrigin || !value) {
       setError('Preencha todos os campos obrigatórios.');
       return;
     }
@@ -338,7 +337,6 @@ function FormPaymentNote() {
       dataLiquidacao: formatDate(dataLiq),
       empresa: { nome: empresaNome, cnpj: cnpj.replace(/\D/g, '') },
       docOrigin: docOrigin.trim(),
-      ns: ns.trim(),
       value: parseFloat(value),
       status,
       tax,
@@ -347,7 +345,7 @@ function FormPaymentNote() {
     const result = await savePaymentNote(dto);
     if (result.data) {
       setSuccess(result.data);
-      setNumeroNp(''); setDataLiq(''); setDocOrigin(''); setNs(''); setValue('');
+      setNumeroNp(''); setDataLiq(''); setDocOrigin(''); setValue('');
       setCnpj(''); setCnpjValid(null); setEmpresaNome('');
       setTaxTipo('OPTANTE'); setCodEfd(''); setIr(''); setCsll(''); setCofins(''); setPisPasep(''); setDarf('');
       setStatus('A_PAGAR');
@@ -368,7 +366,6 @@ function FormPaymentNote() {
             <Input label="Nº NP" type="number" placeholder="2024001" value={numeroNp} onChange={(e) => setNumeroNp(e.target.value)} />
             <Input label="Data Liquidação" type="date" value={dataLiq} onChange={(e) => setDataLiq(e.target.value)} />
             <Input label="Doc. Origem" placeholder="DOC-001" value={docOrigin} onChange={(e) => setDocOrigin(e.target.value)} />
-            <Input label="NS" placeholder="NS-001" value={ns} onChange={(e) => setNs(e.target.value)} />
             <Input label="Valor (R$)" type="number" step="0.01" placeholder="0.00" value={value} onChange={(e) => setValue(e.target.value)} />
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold uppercase tracking-widest text-stone-400">Status</label>
@@ -461,7 +458,6 @@ function FormPaymentNote() {
             <Field label="Empresa" value={d.empresa.nome} />
             <Field label="CNPJ" value={formatCNPJ(d.empresa.cnpj)} />
             <Field label="Doc. Origem" value={d.docOrigin} />
-            <Field label="NS" value={d.ns} />
             <Field label="Valor" value={formatCurrency(d.value)} />
             <Field label="Status" value={d.status} />
             <Field label="Tributação" value={d.tax?.tipo ?? '—'} />

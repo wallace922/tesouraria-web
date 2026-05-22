@@ -31,6 +31,7 @@ export function useEntitySearch<T>() {
     setAllResults([]);
     setShowAll(false);
     setFound(null);
+    setEditing(false);
     setCurrentPage(0);
     setTotalPages(0);
     setTotalElements(0);

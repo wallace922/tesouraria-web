@@ -198,3 +198,4 @@ Todas as chamadas via `src/services/api.ts` → `http://localhost:8080/api`.
 - **Nenhuma interface contém `id`** — o front-end trabalha apenas com dados de negócio.
 - **Validação via API** — o front-end busca e valida dados no back-end antes de POST/PUT.
 - **Refresh automático** — após salvar, o callback `handleGetAll` atualiza a listagem quando `showAll` está ativo.
+- **Campo Removido** — o campo `ns` (Nota de Saque) de `PaymentNoteDto` foi removido do banco e da API. Não utilize ou referencie esse campo.

@@ -322,7 +322,7 @@ export default function Dashboard() {
               <table className="min-w-full text-xs divide-y divide-white/5">
                 <thead>
                   <tr className="border-b border-stone-600 text-[10px] uppercase tracking-widest text-stone-400 bg-stone-900/40">
-                    <th className="px-3 py-3 text-left border-r border-white/10" colSpan={6}>
+                    <th className="px-3 py-3 text-left border-r border-white/10" colSpan={5}>
                       <span className="text-amber-500">■</span> Nota de Pagamento
                     </th>
                     <th className="px-3 py-3 text-left border-r border-white/10" colSpan={1}>
@@ -344,7 +344,6 @@ export default function Dashboard() {
                   <th className="px-3 py-2 text-left">Data Liq.</th>
                   <th className="px-3 py-2 text-left">CNPJ</th>
                   <th className="px-3 py-2 text-left">Doc. Origem</th>
-                  <th className="px-3 py-2 text-left">NS</th>
                   <th className="px-3 py-2 text-right border-r border-white/10">Valor</th>
                   <th className="px-3 py-2 text-left border-r border-white/10">Impostos</th>
                   <th className="px-3 py-2 text-left">Vínculo</th>
@@ -399,8 +398,6 @@ export default function Dashboard() {
                         </td>
                         {/* Doc Origin */}
                         <td className="px-3 py-2.5 text-gray-400">{row.paymentNoteBasicDto.docOrigin}</td>
-                        {/* NS */}
-                        <td className="px-3 py-2.5 text-gray-400">{row.paymentNoteBasicDto.ns}</td>
                         {/* Valor + Status */}
                         <td className="px-3 py-2.5 text-right border-r border-white/10">
                           <span className="text-amber-300 font-bold block">{formatCurrency(row.paymentNoteBasicDto.value)}</span>
