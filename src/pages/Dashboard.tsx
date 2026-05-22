@@ -13,6 +13,7 @@ import {
 } from '../services/api';
 import type { PaymentNoteEmpenhoDto } from '../types';
 import { formatCurrency, formatCNPJ, formatDate } from '../lib/utils';
+import { ReadField } from './BuscaTabs/Shared';
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
 
@@ -89,6 +90,12 @@ export default function Dashboard() {
   const [editingMap, setEditingMap] = useState<EditingMap>({});
   const [confirmingMap, setConfirmingMap] = useState<Record<number, boolean>>({});
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
+
+  // Accordion expand
+  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
+  function toggleExpand(index: number) {
+    setExpandedRows(prev => ({ ...prev, [index]: !prev[index] }));
+  }
 
   // ── Carregamento inicial ───────────────────────────────────────────────────
 
@@ -174,6 +181,7 @@ export default function Dashboard() {
 
   function startEdit(index: number, row: PaymentNoteEmpenhoDto) {
     setRowErrors((prev) => { const n = { ...prev }; delete n[index]; return n; });
+    setExpandedRows(prev => ({ ...prev, [index]: true }));
     setEditingMap((prev) => ({
       ...prev,
       [index]: {
@@ -221,16 +229,16 @@ export default function Dashboard() {
     setConfirmingMap((prev) => ({ ...prev, [index]: true }));
 
     const npYearToUse = npAno ?? originalNpYear;
-    
+
     // Buscar apenas se alterado
     const npResult = npAlterado
       ? await findNpByNumeroEAno(npNum, npYearToUse!)
       : { data: originalRow.paymentNoteBasicDto, status: 200, errorMessage: null };
-      
+
     const empResult = empAlterado
       ? await findEmpenhoByNumeroEAno(empNum, empAno)
       : { data: originalRow.empenhoDto, status: 200, errorMessage: null };
-      
+
     const fpResult = fpAlterado && fpNum
       ? await findFinancialPlanningByNumber(fpNum)
       : { data: fpAlterado ? null : (originalRow.financialPlanningBasicDto ?? null), status: 200, errorMessage: null };
@@ -431,228 +439,237 @@ export default function Dashboard() {
               </div>
 
               {/* Desktop: table view */}
-              <div className="hidden lg:block w-full overflow-x-auto p-4">
+              <div className="hidden lg:block w-full p-4">
                 <table className="w-full text-xs divide-y divide-white/5">
-                <thead>
-                  <tr className="border-b border-stone-600 text-[10px] uppercase tracking-widest text-stone-400 bg-stone-900/40">
-                    <th className="px-3 py-3 text-left border-r border-white/10" colSpan={5}>
-                      <span className="text-amber-500">■</span> Nota de Pagamento
-                    </th>
-                    <th className="px-3 py-3 text-left border-r border-white/10" colSpan={1}>
-                      <span className="text-amber-500">■</span> Tributação
-                    </th>
-                    <th className="px-3 py-3 text-left border-r border-white/10" colSpan={1}>
-                      <span className="text-amber-500">■</span> Vínculo
-                    </th>
-                    <th className="px-3 py-3 text-left border-r border-white/10" colSpan={5}>
-                      <span className="text-amber-500">■</span> Empenho
-                    </th>
-                    <th className="px-3 py-3 text-left border-r border-white/10" colSpan={4}>
-                      <span className="text-amber-500">■</span> PF
-                    </th>
-                    <th className="px-3 py-3 text-center" colSpan={1}>Ações</th>
-                  </tr>
-                  <tr className="border-b border-white/10 text-[10px] uppercase tracking-widest text-stone-500 bg-stone-900/20">
-                  <th className="px-3 py-2 text-left whitespace-nowrap">Nº NP</th>
-                  <th className="px-3 py-2 text-left whitespace-nowrap">Data Liq.</th>
-                  <th className="px-3 py-2 text-left whitespace-nowrap">CNPJ</th>
-                  <th className="px-3 py-2 text-left whitespace-nowrap">Doc. Origem</th>
-                  <th className="px-3 py-2 text-right border-r border-white/10 whitespace-nowrap">Valor</th>
-                  <th className="px-3 py-2 text-left border-r border-white/10 whitespace-nowrap">Impostos</th>
-                  <th className="px-3 py-2 text-left whitespace-nowrap">Vínculo</th>
-                  <th className="px-3 py-2 text-left whitespace-nowrap">Nº Emp.</th>
-                  <th className="px-3 py-2 text-left whitespace-nowrap">Ano</th>
-                  <th className="px-3 py-2 text-left whitespace-nowrap">Fonte Origem</th>
-                  <th className="px-3 py-2 text-left whitespace-nowrap">Plano Interno</th>
-                  <th className="px-3 py-2 text-left border-r border-white/10 whitespace-nowrap">Natureza</th>
-                  <th className="px-3 py-2 text-left whitespace-nowrap">Nº PF</th>
-                  <th className="px-3 py-2 text-left whitespace-nowrap">Data</th>
-                  <th className="px-3 py-2 text-left whitespace-nowrap">Vínculo</th>
-                  <th className="px-3 py-2 text-left border-r border-white/10 whitespace-nowrap">Origem</th>
-                  <th className="px-3 py-2 text-center">—</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, index) => {
-                  const editing = editingMap[index];
-                  const confirming = confirmingMap[index] ?? false;
-                  const isEditing = !!editing;
+                  <thead>
+                    <tr className="border-b border-white/10 text-[10px] uppercase tracking-widest text-stone-500 bg-stone-900/20">
+                      <th className="px-3 py-2 text-left whitespace-nowrap">Nº NP</th>
+                      <th className="px-3 py-2 text-left whitespace-nowrap">Data Liq.</th>
+                      <th className="px-3 py-2 text-left whitespace-nowrap">Empresa</th>
+                      <th className="px-3 py-2 text-left whitespace-nowrap">Doc. Origem</th>
+                      <th className="px-3 py-2 text-right whitespace-nowrap">Valor</th>
+                      <th className="px-3 py-2 text-center whitespace-nowrap">Status</th>
+                      <th className="px-3 py-2 text-left whitespace-nowrap">Empenho</th>
+                      <th className="px-3 py-2 text-left whitespace-nowrap">Plano Interno</th>
+                      <th className="px-3 py-2 text-left whitespace-nowrap">PF</th>
+                      <th className="px-3 py-2 text-right whitespace-nowrap">Vínculo</th>
+                      <th className="px-3 py-2 text-center whitespace-nowrap">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, index) => {
+                      const editing = editingMap[index];
+                      const confirming = confirmingMap[index] ?? false;
+                      const isEditing = !!editing;
+                      const isExpanded = expandedRows[index] ?? false;
 
-                  return (
-                    <React.Fragment key={index}>
-                      <tr
-                        className={`border-b border-stone-800 transition-colors duration-150 ${isEditing ? 'bg-amber-900/20 ring-1 ring-inset ring-amber-600/50' : 'hover:bg-stone-800/30 bg-transparent'
-                          }`}
-                      >
-                        <td className="px-3 py-2.5">
-                          {isEditing ? (
-                            <div className="flex flex-col gap-1">
-                              <input type="number" value={editing.numeroNp}
-                                onChange={(e) => updateEditField(index, 'numeroNp', e.target.value)}
-                                className="w-full min-w-0 sm:w-24 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" placeholder="Nº NP" />
-                              <input type="number" value={editing.npAno}
-                                onChange={(e) => updateEditField(index, 'npAno', e.target.value)}
-                                className="w-full min-w-0 sm:w-20 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" placeholder="Ano" />
-                            </div>
-                          ) : (
-                            <span className="text-amber-400 font-bold">{row.paymentNoteBasicDto.numeroNp}</span>
+                      return (
+                        <React.Fragment key={index}>
+                          <tr
+                            className={`border-b border-stone-800 transition-colors duration-150 ${isEditing ? 'bg-amber-900/20 ring-1 ring-inset ring-amber-600/50' : 'hover:bg-stone-800/30 bg-transparent'}`}
+                          >
+                            <td className="px-3 py-2.5">
+                              {isEditing ? (
+                                <div className="flex flex-col gap-1">
+                                  <input type="number" value={editing.numeroNp}
+                                    onChange={(e) => updateEditField(index, 'numeroNp', e.target.value)}
+                                    className="w-24 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" placeholder="Nº NP" />
+                                  <input type="number" value={editing.npAno}
+                                    onChange={(e) => updateEditField(index, 'npAno', e.target.value)}
+                                    className="w-20 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" placeholder="Ano" />
+                                </div>
+                              ) : (
+                                <span className="text-amber-400 font-bold">{row.paymentNoteBasicDto.numeroNp}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-gray-300 whitespace-nowrap">{formatDate(row.paymentNoteBasicDto.dataLiquidacao)}</td>
+                            <td className="px-3 py-2.5 text-gray-400">
+                              <span className="block text-gray-300 truncate max-w-[180px]" title={row.paymentNoteBasicDto.empresa.nome}>{row.paymentNoteBasicDto.empresa.nome}</span>
+                              <span className="text-[10px] text-stone-500 font-mono">{formatCNPJ(row.paymentNoteBasicDto.empresa.cnpj)}</span>
+                            </td>
+                            <td className="px-3 py-2.5 text-gray-400">{row.paymentNoteBasicDto.docOrigin}</td>
+                            <td className="px-3 py-2.5 text-right">
+                              <span className="text-amber-300 font-bold">{formatCurrency(row.paymentNoteBasicDto.value)}</span>
+                            </td>
+                            <td className="px-3 py-2.5 text-center">
+                              <StatusBadge status={row.paymentNoteBasicDto.status} />
+                            </td>
+                            <td className="px-3 py-2.5">
+                              {isEditing ? (
+                                <div className="flex gap-1">
+                                  <input type="number" value={editing.numeroEmpenho}
+                                    onChange={(e) => updateEditField(index, 'numeroEmpenho', e.target.value)}
+                                    className="w-20 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" placeholder="Nº" />
+                                  <input type="number" value={editing.anoEmpenho}
+                                    onChange={(e) => updateEditField(index, 'anoEmpenho', e.target.value)}
+                                    className="w-16 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" placeholder="Ano" />
+                                </div>
+                              ) : (
+                                <span className="text-amber-400 font-bold">{row.empenhoDto.numero}<span className="text-stone-500 font-normal">/{row.empenhoDto.ano}</span></span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-gray-400">{row.empenhoDto.internalPlan}</td>
+                            <td className="px-3 py-2.5">
+                              {row.financialPlanningBasicDto ? (
+                                <span className="text-amber-400 font-bold">#{row.financialPlanningBasicDto.numberId}</span>
+                              ) : (
+                                <span className="text-stone-600">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-right">
+                              {isEditing ? (
+                                <input type="number" value={editing.valorVinculo}
+                                  onChange={(e) => updateEditField(index, 'valorVinculo', e.target.value)}
+                                  className="w-24 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                              ) : (
+                                <span className="text-amber-300 font-bold">{formatCurrency(row.value)}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                {isEditing ? (
+                                  <>
+                                    <Button variant="primary" size="sm" loading={confirming} onClick={() => confirmEdit(index, row)}>
+                                      ✔
+                                    </Button>
+                                    <Button variant="ghost" size="sm" onClick={() => cancelEdit(index)} disabled={confirming}>
+                                      ✕
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => toggleExpand(index)}
+                                      className={`px-1.5 py-1 rounded text-[10px] font-bold transition-colors ${isExpanded ? 'text-amber-400 bg-amber-500/20' : 'text-stone-500 hover:text-stone-300'}`}
+                                      title={isExpanded ? 'Recolher detalhes' : 'Expandir detalhes'}
+                                    >
+                                      {isExpanded ? '▲' : '▼'}
+                                    </button>
+                                    <Button variant="secondary" size="sm" onClick={() => startEdit(index, row)}>
+                                      ✎
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Linha de detalhe expansível */}
+                          {(isExpanded || isEditing) && (
+                            <tr className="bg-stone-900/40 border-b border-stone-700">
+                              <td colSpan={11} className="px-4 py-3">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  {/* Tributação */}
+                                  <div className="space-y-2">
+                                    <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold"><span className="text-amber-500 mr-1">■</span>Tributação</p>
+                                    {!row.paymentNoteBasicDto.tax ? (
+                                      <span className="text-stone-600 text-xs">Sem tributação</span>
+                                    ) : row.paymentNoteBasicDto.tax.tipo === 'OPTANTE' ? (
+                                      <span className="px-2 py-1 rounded text-[10px] font-bold bg-emerald-900/50 text-emerald-300 border border-emerald-700 uppercase tracking-wider">Optante</span>
+                                    ) : (
+                                      <div className="space-y-1">
+                                        <ReadField label="Tipo" value="Não Optante" />
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <ReadField label="IR" value={formatCurrency(row.paymentNoteBasicDto.tax.ir ?? 0)} />
+                                          <ReadField label="CSLL" value={formatCurrency(row.paymentNoteBasicDto.tax.csll ?? 0)} />
+                                          <ReadField label="COFINS" value={formatCurrency(row.paymentNoteBasicDto.tax.cofins ?? 0)} />
+                                          <ReadField label="PIS" value={formatCurrency(row.paymentNoteBasicDto.tax.pisPasep ?? 0)} />
+                                          <ReadField label="DARF" value={formatCurrency(row.paymentNoteBasicDto.tax.darf ?? 0)} />
+                                          <ReadField label="Cód. EFD" value={row.paymentNoteBasicDto.tax.codEfd ?? 0} />
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Empenho — Detalhes */}
+                                  <div className="space-y-2">
+                                    <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold"><span className="text-amber-500 mr-1">■</span>Empenho — Detalhes</p>
+                                    <ReadField label="Fonte Origem" value={row.empenhoDto.fontDeOrigin} />
+                                    <ReadField label="Natureza" value={row.empenhoDto.nature} />
+                                  </div>
+
+                                  {/* PF */}
+                                  <div className="space-y-2">
+                                    <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold"><span className="text-amber-500 mr-1">■</span>Planejamento Financeiro</p>
+                                    {isEditing ? (
+                                      <div className="space-y-2">
+                                        <div>
+                                          <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-1 block">Nº PF (opcional)</label>
+                                          <input type="number" value={editing.numeroFP}
+                                            onChange={(e) => updateEditField(index, 'numeroFP', e.target.value)}
+                                            placeholder="opcional"
+                                            className="w-full bg-stone-800 border border-stone-600 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder-stone-600" />
+                                        </div>
+                                      </div>
+                                    ) : row.financialPlanningBasicDto ? (
+                                      <>
+                                        <ReadField label="Nº PF" value={row.financialPlanningBasicDto.numberId} />
+                                        <ReadField label="Data" value={formatDate(row.financialPlanningBasicDto.data)} />
+                                        <ReadField label="Vinculação" value={row.financialPlanningBasicDto.vinculation} />
+                                        <ReadField label="Origem" value={row.financialPlanningBasicDto.origin} />
+                                      </>
+                                    ) : (
+                                      <span className="text-stone-600 text-xs">Sem PF vinculado</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                        <td className="px-3 py-2.5 text-gray-300 whitespace-nowrap">{formatDate(row.paymentNoteBasicDto.dataLiquidacao)}</td>
-                        <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap">
-                          <span title={row.paymentNoteBasicDto.empresa.nome}>{formatCNPJ(row.paymentNoteBasicDto.empresa.cnpj)}</span>
-                          <br />
-                          <span className="text-[10px] text-stone-500 truncate max-w-[120px] block">
-                            {row.paymentNoteBasicDto.empresa.nome}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-gray-400">{row.paymentNoteBasicDto.docOrigin}</td>
-                        <td className="px-3 py-2.5 text-right border-r border-white/10">
-                          <span className="text-amber-300 font-bold block">{formatCurrency(row.paymentNoteBasicDto.value)}</span>
-                          <div className="mt-1 flex justify-end">
-                            <StatusBadge status={row.paymentNoteBasicDto.status} />
-                          </div>
-                        </td>
-                        <td className="px-3 py-2.5 border-r border-white/10">
-                          {!row.paymentNoteBasicDto.tax ? (
-                            <span className="px-2 py-1 rounded text-[10px] font-bold bg-stone-800 text-stone-500 border border-white/10">
-                              —
-                            </span>
-                          ) : row.paymentNoteBasicDto.tax?.tipo === 'OPTANTE' ? (
-                            <span className="px-2 py-1 rounded text-[10px] font-bold bg-emerald-900/50 text-emerald-300 border border-emerald-700 uppercase tracking-wider">
-                              Optante
-                            </span>
-                          ) : (
-                            <div className="space-y-0.5 text-[10px] text-gray-400">
-                              <div className="flex justify-between gap-3"><span className="text-stone-500">IR</span><span>{formatCurrency(row.paymentNoteBasicDto.tax.ir ?? 0)}</span></div>
-                              <div className="flex justify-between gap-3"><span className="text-stone-500">CSLL</span><span>{formatCurrency(row.paymentNoteBasicDto.tax.csll ?? 0)}</span></div>
-                              <div className="flex justify-between gap-3"><span className="text-stone-500">COFINS</span><span>{formatCurrency(row.paymentNoteBasicDto.tax.cofins ?? 0)}</span></div>
-                              <div className="flex justify-between gap-3"><span className="text-stone-500">PIS</span><span>{formatCurrency(row.paymentNoteBasicDto.tax.pisPasep ?? 0)}</span></div>
-                              <div className="flex justify-between gap-3"><span className="text-stone-500">DARF</span><span>{formatCurrency(row.paymentNoteBasicDto.tax.darf ?? 0)}</span></div>
-                            </div>
+
+                          {rowErrors[index] && (
+                            <tr className="bg-transparent">
+                              <td colSpan={11} className="px-3 pb-2">
+                                <Alert variant="error" message={rowErrors[index]} onClose={() =>
+                                  setRowErrors((prev) => { const n = { ...prev }; delete n[index]; return n; })
+                                } />
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                        <td className="px-3 py-2.5 text-left border-r border-white/10">
-                          {isEditing ? (
-                            <input type="number" value={editing.valorVinculo}
-                              onChange={(e) => updateEditField(index, 'valorVinculo', e.target.value)}
-                              className="w-full min-w-0 sm:w-24 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
-                          ) : (
-                            <span className="text-amber-300 font-bold block">{formatCurrency(row.value)}</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {isEditing ? (
-                            <input type="number" value={editing.numeroEmpenho}
-                              onChange={(e) => updateEditField(index, 'numeroEmpenho', e.target.value)}
-                              className="w-full min-w-0 sm:w-24 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
-                          ) : (
-                            <span className="text-amber-400 font-bold">{row.empenhoDto.numero}</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {isEditing ? (
-                            <input type="number" value={editing.anoEmpenho}
-                              onChange={(e) => updateEditField(index, 'anoEmpenho', e.target.value)}
-                              className="w-full min-w-0 sm:w-20 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
-                          ) : (
-                            <span className="text-gray-300">{row.empenhoDto.ano}</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5 text-amber-300">{row.empenhoDto.fontDeOrigin}</td>
-                        <td className="px-3 py-2.5 text-gray-400">{row.empenhoDto.internalPlan}</td>
-                        <td className="px-3 py-2.5 text-gray-400 border-r border-white/10">{row.empenhoDto.nature}</td>
-                        <td className="px-3 py-2.5">
-                          {isEditing ? (
-                            <input type="number" value={editing.numeroFP}
-                              onChange={(e) => updateEditField(index, 'numeroFP', e.target.value)}
-                              placeholder="opcional"
-                              className="w-full min-w-0 sm:w-24 bg-stone-800 border border-stone-600 text-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder-stone-600" />
-                          ) : row.financialPlanningBasicDto ? (
-                            <span className="text-amber-400 font-bold">{row.financialPlanningBasicDto.numberId}</span>
-                          ) : (
-                            <span className="text-stone-600">—</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5 text-gray-300 whitespace-nowrap">
-                          {row.financialPlanningBasicDto ? formatDate(row.financialPlanningBasicDto.data) : <span className="text-stone-600">—</span>}
-                        </td>
-                        <td className="px-3 py-2.5 text-gray-400">
-                          {row.financialPlanningBasicDto ? row.financialPlanningBasicDto.vinculation : <span className="text-stone-600">—</span>}
-                        </td>
-                        <td className="px-3 py-2.5 text-gray-400 border-r border-white/10">
-                          {row.financialPlanningBasicDto ? row.financialPlanningBasicDto.origin : <span className="text-stone-600">—</span>}
-                        </td>
-                        <td className="px-3 py-2.5 text-center">
-                          {isEditing ? (
-                            <div className="flex items-center justify-center gap-1.5">
-                              <Button variant="primary" size="sm" loading={confirming} onClick={() => confirmEdit(index, row)}>
-                                ✔ Confirmar
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => cancelEdit(index)} disabled={confirming}>
-                                ✕
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button variant="secondary" size="sm" onClick={() => startEdit(index, row)}>
-                              ✎ Editar
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                      {rowErrors[index] && (
-                        <tr className="bg-transparent">
-                          <td colSpan={16} className="px-3 pb-2">
-                            <Alert variant="error" message={rowErrors[index]} onClose={() =>
-                              setRowErrors((prev) => { const n = { ...prev }; delete n[index]; return n; })
-                            } />
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-between mt-4 px-2 gap-4 sm:gap-0">
-            <span className="text-xs text-stone-500">
-              Página {currentPage + 1} de {totalPages || 1}
-              {totalElements > 0 && ` (${totalElements} registros)`}
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost" size="sm"
-                onClick={() => loadAll(currentPage - 1)}
-                disabled={currentPage === 0 || loadingList}
-              >
-                ← Anterior
-              </Button>
-              <Input
-                placeholder="Pág"
-                value={pageInput}
-                onChange={(e) => setPageInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleGoToPage()}
-                className="w-16 text-center text-xs"
-              />
-              <Button
-                variant="ghost" size="sm"
-                onClick={handleGoToPage}
-                disabled={loadingList}
-              >
-                Ir
-              </Button>
-              <Button
-                variant="ghost" size="sm"
-                onClick={() => loadAll(currentPage + 1)}
-                disabled={currentPage >= totalPages - 1 || loadingList}
-              >
-                Próxima →
-              </Button>
+              <span className="text-xs text-stone-500">
+                Página {currentPage + 1} de {totalPages || 1}
+                {totalElements > 0 && ` (${totalElements} registros)`}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost" size="sm"
+                  onClick={() => loadAll(currentPage - 1)}
+                  disabled={currentPage === 0 || loadingList}
+                >
+                  ← Anterior
+                </Button>
+                <Input
+                  placeholder="Pág"
+                  value={pageInput}
+                  onChange={(e) => setPageInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleGoToPage()}
+                  className="w-16 text-center text-xs"
+                />
+                <Button
+                  variant="ghost" size="sm"
+                  onClick={handleGoToPage}
+                  disabled={loadingList}
+                >
+                  Ir
+                </Button>
+                <Button
+                  variant="ghost" size="sm"
+                  onClick={() => loadAll(currentPage + 1)}
+                  disabled={currentPage >= totalPages - 1 || loadingList}
+                >
+                  Próxima →
+                </Button>
+              </div>
             </div>
-          </div>
           </>
         )}
       </div>
