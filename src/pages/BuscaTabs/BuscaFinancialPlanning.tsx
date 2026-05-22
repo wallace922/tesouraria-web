@@ -11,8 +11,9 @@ import { SectionTitle, TableContainer } from './Shared';
 import { useEntitySearch } from '../../hooks/useEntitySearch';
 
 export default function BuscaFinancialPlanning() {
-  const [sId, setSId]         = useState('');
-  const [numberId, setNumberId] = useState('');
+  const [sNumero, setSNumero] = useState('');
+  const [sAno, setSAno]       = useState('');
+  const [numero, setNumero]   = useState('');
   const [data, setData]       = useState('');
   const [vinculation, setVinculation] = useState('');
   const [origin, setOrigin]   = useState('');
@@ -36,7 +37,7 @@ export default function BuscaFinancialPlanning() {
 
   const handleEdit = (e: FinancialPlanningDto) => {
     setFound(e);
-    setNumberId(String(e.numberId));
+    setNumero(String(e.numero));
     setData(toInputDate(e.data));
     setVinculation(String(e.vinculation));
     setOrigin(String(e.origin));
@@ -47,7 +48,7 @@ export default function BuscaFinancialPlanning() {
     if (!found) return;
     const payload: FinancialPlanningDto = {
       ...found,
-      numberId: parseInt(numberId, 10),
+      numero: parseInt(numero, 10),
       data,
       vinculation: parseInt(vinculation, 10),
       origin: parseInt(origin, 10),
@@ -60,9 +61,10 @@ export default function BuscaFinancialPlanning() {
   };
 
   const handleSearch = () => {
-    if (!sId) { setError('Informe o Nº ID.'); return; }
+    if (!sNumero) { setError('Informe o Nº PF.'); return; }
+    if (!sAno) { setError('Informe o Ano do PF.'); return; }
     handleSearchRequest(
-      () => findFinancialPlanningByNumber(parseInt(sId, 10)),
+      () => findFinancialPlanningByNumber(parseInt(sNumero, 10), parseInt(sAno, 10)),
       (data) => { handleEdit(data); }
     );
   };
@@ -74,14 +76,18 @@ export default function BuscaFinancialPlanning() {
   return (
     <div className="space-y-6">
       <div className="glass-panel p-5">
-        <SectionTitle>Buscar Planejamento Financeiro (PF) por Nº ID</SectionTitle>
+        <SectionTitle>Buscar Planejamento Financeiro (PF) por Nº + Ano</SectionTitle>
         <div className="flex flex-wrap items-end gap-3">
-        <Input label="Nº ID" type="number" placeholder="1001" value={sId}
-          onChange={(e) => { setSId(e.target.value); setError(null); setAllResults([]); setShowAll(false); }}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          className="w-full sm:w-36" />
-        <Button variant="ghost" size="md" loading={loading} onClick={handleSearch}>🔍 Buscar</Button>
-        <Button variant="ghost" size="md" loading={loading} onClick={handleGetAll}>🔍 Buscar Todos</Button>
+          <Input label="Nº PF" type="number" placeholder="1001" value={sNumero}
+            onChange={(e) => { setSNumero(e.target.value); setError(null); setAllResults([]); setShowAll(false); }}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            className="w-full sm:w-36" />
+          <Input label="Ano" type="number" placeholder="2024" value={sAno}
+            onChange={(e) => { setSAno(e.target.value); setError(null); }}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            className="w-full sm:w-28" />
+          <Button variant="ghost" size="md" loading={loading} onClick={handleSearch}>🔍 Buscar</Button>
+          <Button variant="ghost" size="md" loading={loading} onClick={handleGetAll}>🔍 Buscar Todos</Button>
         </div>
       </div>
 
@@ -91,7 +97,7 @@ export default function BuscaFinancialPlanning() {
         <div className="glass-panel p-5 animate-fadeIn mt-6 max-w-2xl">
           <SectionTitle>Atualizar Planejamento Financeiro (PF)</SectionTitle>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-            <Input label="Nº ID" type="number" value={numberId} onChange={e => setNumberId(e.target.value)} />
+            <Input label="Nº PF" type="number" value={numero} onChange={e => setNumero(e.target.value)} />
             <Input label="Data" type="date" value={data} onChange={e => setData(e.target.value)} />
             <Input label="Vinculação" type="number" value={vinculation} onChange={e => setVinculation(e.target.value)} />
             <Input label="Origem" type="number" value={origin} onChange={e => setOrigin(e.target.value)} />
@@ -111,7 +117,7 @@ export default function BuscaFinancialPlanning() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-stone-500 text-xs uppercase border-b border-white/10">
-                  <th className="py-2 pr-4">Nº ID</th>
+                  <th className="py-2 pr-4">Nº PF</th>
                   <th className="py-2 pr-4">Data</th>
                   <th className="py-2 pr-4">Vinculação</th>
                   <th className="py-2 pr-4">Origem</th>
@@ -121,7 +127,7 @@ export default function BuscaFinancialPlanning() {
               <tbody>
                 {allResults.map((e, i) => (
                   <tr key={i} className="border-b border-stone-800 hover:bg-stone-800/30">
-                    <td className="py-2 pr-4 text-amber-300 font-mono">#{e.numberId}</td>
+                    <td className="py-2 pr-4 text-amber-300 font-mono">#{e.numero}</td>
                     <td className="py-2 pr-4 text-gray-300">{formatDate(e.data)}</td>
                     <td className="py-2 pr-4 text-gray-300">{e.vinculation}</td>
                     <td className="py-2 pr-4 text-stone-500">{e.origin}</td>

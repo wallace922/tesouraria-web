@@ -190,7 +190,7 @@ export default function Dashboard() {
         npAno: '',
         numeroEmpenho: String(row.empenhoDto.numero),
         anoEmpenho: String(row.empenhoDto.ano),
-        numeroFP: row.financialPlanningBasicDto ? String(row.financialPlanningBasicDto.numberId) : '',
+        numeroFP: row.financialPlanningBasicDto ? String(row.financialPlanningBasicDto.numero) : '',
         valorVinculo: String(row.value),
       }
     }));
@@ -219,7 +219,7 @@ export default function Dashboard() {
     const originalNpYear = extractNpYear(originalRow.paymentNoteBasicDto.dataLiquidacao);
     const npAlterado = npNum !== originalRow.paymentNoteBasicDto.numeroNp || (npAno !== null && npAno !== originalNpYear);
     const empAlterado = empNum !== originalRow.empenhoDto.numero || empAno !== originalRow.empenhoDto.ano;
-    const fpAlterado = fpNum !== (originalRow.financialPlanningBasicDto?.numberId ?? null);
+    const fpAlterado = fpNum !== (originalRow.financialPlanningBasicDto?.numero ?? null);
 
     if (!npNum || !empNum || !empAno) {
       setRowErrors((prev) => ({ ...prev, [index]: 'Nº NP, Nº Empenho e Ano são obrigatórios.' }));
@@ -240,7 +240,15 @@ export default function Dashboard() {
       : { data: originalRow.empenhoDto, status: 200, errorMessage: null };
 
     const fpResult = fpAlterado && fpNum
-      ? await findFinancialPlanningByNumber(fpNum)
+      ? await (() => {
+          const pfData = originalRow.financialPlanningBasicDto?.data;
+          const fpAno = pfData
+            ? (pfData.includes('/') ? parseInt(pfData.split('/')[2], 10)
+               : pfData.includes('-') ? parseInt(pfData.split('-')[0], 10)
+               : new Date().getFullYear())
+            : new Date().getFullYear();
+          return findFinancialPlanningByNumber(fpNum, fpAno);
+        })()
       : { data: fpAlterado ? null : (originalRow.financialPlanningBasicDto ?? null), status: 200, errorMessage: null };
 
     const erros: string[] = [];
@@ -416,7 +424,7 @@ export default function Dashboard() {
                           </div>
                           {row.financialPlanningBasicDto && (
                             <div className="text-xs text-stone-500 mt-1">
-                              PF: <span className="text-amber-400">#{row.financialPlanningBasicDto.numberId}</span>
+                              PF: <span className="text-amber-400">#{row.financialPlanningBasicDto.numero}</span>
                             </div>
                           )}
                           <div className="mt-3 pt-2 border-t border-white/10 flex justify-end">
@@ -511,7 +519,7 @@ export default function Dashboard() {
                             <td className="px-3 py-2.5 text-gray-400">{row.empenhoDto.internalPlan}</td>
                             <td className="px-3 py-2.5">
                               {row.financialPlanningBasicDto ? (
-                                <span className="text-amber-400 font-bold">#{row.financialPlanningBasicDto.numberId}</span>
+                                <span className="text-amber-400 font-bold">#{row.financialPlanningBasicDto.numero}</span>
                               ) : (
                                 <span className="text-stone-600">—</span>
                               )}
@@ -603,7 +611,7 @@ export default function Dashboard() {
                                       </div>
                                     ) : row.financialPlanningBasicDto ? (
                                       <>
-                                        <ReadField label="Nº PF" value={row.financialPlanningBasicDto.numberId} />
+                                        <ReadField label="Nº PF" value={row.financialPlanningBasicDto.numero} />
                                         <ReadField label="Data" value={formatDate(row.financialPlanningBasicDto.data)} />
                                         <ReadField label="Vinculação" value={row.financialPlanningBasicDto.vinculation} />
                                         <ReadField label="Origem" value={row.financialPlanningBasicDto.origin} />

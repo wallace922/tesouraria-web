@@ -12,7 +12,7 @@ export interface EmpresaDto {
 }
 
 export interface FinancialPlanningDto {
-  numberId: number;
+  numero: number;
   data: string;
   vinculation: number;
   origin: number;

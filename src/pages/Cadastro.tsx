@@ -194,7 +194,7 @@ function FormEmpenho() {
 // ── Sub-formulário: Financial Planning ───────────────────────────────────────
 
 function FormFinancialPlanning() {
-  const [numberId, setNumberId] = useState('');
+  const [numero, setNumero] = useState('');
   const [data, setData] = useState('');
   const [vinculation, setVinculation] = useState('');
   const [origin, setOrigin] = useState('');
@@ -204,13 +204,13 @@ function FormFinancialPlanning() {
 
   async function handleSave() {
     setError(null); setSuccess(null);
-    if (!numberId || !data || !vinculation || !origin) {
+    if (!numero || !data || !vinculation || !origin) {
       setError('Todos os campos são obrigatórios.');
       return;
     }
     setLoading(true);
     const dto: FinancialPlanningDto = {
-      numberId: parseInt(numberId, 10),
+      numero: parseInt(numero, 10),
       data,
       vinculation: parseInt(vinculation, 10),
       origin: parseInt(origin, 10),
@@ -218,7 +218,7 @@ function FormFinancialPlanning() {
     const result = await saveFinancialPlanning(dto);
     if (result.data) {
       setSuccess(result.data);
-      setNumberId(''); setData(''); setVinculation(''); setOrigin('');
+      setNumero(''); setData(''); setVinculation(''); setOrigin('');
     } else {
       setError(result.errorMessage ?? 'Erro ao salvar financial planning.');
     }
@@ -230,7 +230,7 @@ function FormFinancialPlanning() {
       <div className="glass-panel p-5">
         <SectionTitle>Dados do Financial Planning</SectionTitle>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-2xl">
-          <Input label="Nº ID" type="number" placeholder="1001" value={numberId} onChange={(e) => setNumberId(e.target.value)} />
+          <Input label="Número" type="number" placeholder="1001" value={numero} onChange={(e) => setNumero(e.target.value)} />
           <Input label="Data" type="date" value={data} onChange={(e) => setData(e.target.value)} />
           <Input label="Vinculação" type="number" placeholder="0" value={vinculation} onChange={(e) => setVinculation(e.target.value)} />
           <Input label="Origem" type="number" placeholder="0" value={origin} onChange={(e) => setOrigin(e.target.value)} />
@@ -243,7 +243,7 @@ function FormFinancialPlanning() {
       {success && (
         <SuccessCard data={success} renderFn={(d) => (
           <>
-            <Field label="Nº ID" value={d.numberId} />
+            <Field label="Número" value={d.numero} />
             <Field label="Data" value={formatDate(d.data)} />
             <Field label="Vinculação" value={d.vinculation} />
             <Field label="Origem" value={d.origin} />
