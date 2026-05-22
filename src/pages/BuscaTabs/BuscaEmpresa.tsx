@@ -84,7 +84,7 @@ export default function BuscaEmpresa() {
           value={searchCnpj}
           onChange={(e) => { setSearchCnpj(applyCnpjMask(e.target.value)); setError(null); setAllResults([]); setShowAll(false); }}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          maxLength={18} className="w-52"
+          maxLength={18} className="w-full sm:w-52"
         />
         <Button variant="ghost" size="md" loading={loading} onClick={handleSearch}>🔍 Buscar</Button>
         <Button variant="ghost" size="md" loading={loading} onClick={handleGetAll}>🔍 Buscar Todos</Button>

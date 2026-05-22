@@ -2,7 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Scrollbar customizada para o tema escuro */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -21,5 +20,11 @@
 @layer components {
   .glass-panel {
     @apply rounded-xl border border-white/10 bg-black/60 backdrop-blur-md shadow-inner;
+  }
+  .brasao-bg {
+    background-image: url(/brasao.png);
+    background-size: cover;
+    background-position: center;
+    opacity: 0.25;
   }
 }

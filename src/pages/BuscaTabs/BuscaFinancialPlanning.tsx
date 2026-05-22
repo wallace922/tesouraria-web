@@ -79,7 +79,7 @@ export default function BuscaFinancialPlanning() {
         <Input label="Nº ID" type="number" placeholder="1001" value={sId}
           onChange={(e) => { setSId(e.target.value); setError(null); setAllResults([]); setShowAll(false); }}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          className="w-36" />
+          className="w-full sm:w-36" />
         <Button variant="ghost" size="md" loading={loading} onClick={handleSearch}>🔍 Buscar</Button>
         <Button variant="ghost" size="md" loading={loading} onClick={handleGetAll}>🔍 Buscar Todos</Button>
         </div>

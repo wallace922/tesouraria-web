@@ -269,22 +269,22 @@ export default function Dashboard() {
   return (
     <PageShell>
       {/* ── Quick Save Bar ─────────────────────────────────────────────────── */}
-      <div className="mx-6 mt-6 p-4 glass-panel">
+      <div className="mx-3 sm:mx-6 mt-6 p-4 glass-panel">
         <p className="text-[10px] uppercase tracking-widest text-stone-500 mb-3 font-bold">
           ▶ Cadastro Rápido de Vínculo
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <Input label="Nº NP" type="number" placeholder="Ex: 2024001"
-            value={quickNp} onChange={(e) => setQuickNp(e.target.value)} className="w-36" />
+            value={quickNp} onChange={(e) => setQuickNp(e.target.value)} className="w-full sm:w-36" />
           <Input label="Ano NP" type="number" placeholder="Ex: 2024"
-            value={quickNpAno} onChange={(e) => setQuickNpAno(e.target.value)} className="w-28" />
+            value={quickNpAno} onChange={(e) => setQuickNpAno(e.target.value)} className="w-full sm:w-28" />
           <Input label="Nº Empenho" type="number" placeholder="Ex: 12345"
-            value={quickEmpenho} onChange={(e) => setQuickEmpenho(e.target.value)} className="w-36" />
+            value={quickEmpenho} onChange={(e) => setQuickEmpenho(e.target.value)} className="w-full sm:w-36" />
           <Input label="Ano Empenho" type="number" placeholder="Ex: 2024"
-            value={quickAno} onChange={(e) => setQuickAno(e.target.value)} className="w-32" />
+            value={quickAno} onChange={(e) => setQuickAno(e.target.value)} className="w-full sm:w-32" />
           <Input label="Valor Vínculo" type="number" placeholder="Valor"
-            value={quickVinculo} onChange={(e) => setQuickVinculo(e.target.value)} className="w-36" />
-          <Button variant="primary" size="md" loading={savingQuick} onClick={handleQuickSave} className="mb-0.5">
+            value={quickVinculo} onChange={(e) => setQuickVinculo(e.target.value)} className="w-full sm:w-36" />
+          <Button variant="primary" size="md" loading={savingQuick} onClick={handleQuickSave} className="mb-0.5 w-full sm:w-auto">
             Salvar Vínculo
           </Button>
         </div>
@@ -295,7 +295,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Main Table ─────────────────────────────────────────────────────── */}
-      <div className="px-6 py-6">
+      <div className="px-3 sm:px-6 py-6">
         <div className="mb-4">
           <h2 className="text-amber-400 font-bold uppercase tracking-widest text-xs">
             ▶ Vínculos Registrados
@@ -318,8 +318,121 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            <div className="overflow-hidden glass-panel p-4">
-              <table className="min-w-full text-xs divide-y divide-white/5">
+            <div className="glass-panel overflow-hidden">
+              {/* Mobile: card view */}
+              <div className="space-y-3 p-3 lg:hidden">
+                {rows.map((row, index) => {
+                  const editing = editingMap[index];
+                  const confirming = confirmingMap[index] ?? false;
+                  const isEditing = !!editing;
+
+                  return (
+                    <div key={index} className={`glass-panel p-3 animate-fadeIn ${isEditing ? 'ring-1 ring-inset ring-amber-600/50' : ''}`}>
+                      {isEditing ? (
+                        <>
+                          <div className="grid grid-cols-2 gap-2 mb-3">
+                            <div>
+                              <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-1 block">Nº NP</label>
+                              <input type="number" value={editing.numeroNp}
+                                onChange={(e) => updateEditField(index, 'numeroNp', e.target.value)}
+                                className="w-full bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-1 block">Ano NP</label>
+                              <input type="number" value={editing.npAno}
+                                onChange={(e) => updateEditField(index, 'npAno', e.target.value)}
+                                className="w-full bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-1 block">Nº Empenho</label>
+                              <input type="number" value={editing.numeroEmpenho}
+                                onChange={(e) => updateEditField(index, 'numeroEmpenho', e.target.value)}
+                                className="w-full bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-1 block">Ano Empenho</label>
+                              <input type="number" value={editing.anoEmpenho}
+                                onChange={(e) => updateEditField(index, 'anoEmpenho', e.target.value)}
+                                className="w-full bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                            </div>
+                            <div className="col-span-2">
+                              <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-1 block">Nº PF (opcional)</label>
+                              <input type="number" value={editing.numeroFP}
+                                onChange={(e) => updateEditField(index, 'numeroFP', e.target.value)}
+                                className="w-full bg-stone-800 border border-stone-600 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder-stone-600" placeholder="opcional" />
+                            </div>
+                            <div className="col-span-2">
+                              <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-1 block">Valor Vínculo</label>
+                              <input type="number" value={editing.valorVinculo}
+                                onChange={(e) => updateEditField(index, 'valorVinculo', e.target.value)}
+                                className="w-full bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button variant="primary" size="sm" loading={confirming} onClick={() => confirmEdit(index, row)} className="flex-1">
+                              ✔ Confirmar
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => cancelEdit(index)} disabled={confirming}>
+                              ✕ Cancelar
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-start justify-between mb-2">
+                            <span className="text-amber-400 font-bold font-mono">NP {row.paymentNoteBasicDto.numeroNp}</span>
+                            <StatusBadge status={row.paymentNoteBasicDto.status} />
+                          </div>
+                          <div className="text-xs text-gray-300 mb-2">
+                            <span className="text-stone-500">{row.paymentNoteBasicDto.empresa.nome}</span>
+                            <br />
+                            <span className="text-stone-500 font-mono">{formatCNPJ(row.paymentNoteBasicDto.empresa.cnpj)}</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <span className="text-stone-500">Valor NP:</span>
+                              <span className="text-amber-300 font-bold ml-1">{formatCurrency(row.paymentNoteBasicDto.value)}</span>
+                            </div>
+                            <div>
+                              <span className="text-stone-500">Vínculo:</span>
+                              <span className="text-amber-300 font-bold ml-1">{formatCurrency(row.value)}</span>
+                            </div>
+                            <div>
+                              <span className="text-stone-500">Empenho:</span>
+                              <span className="text-amber-400 ml-1">{row.empenhoDto.numero}/{row.empenhoDto.ano}</span>
+                            </div>
+                            <div>
+                              <span className="text-stone-500">Data Liq.:</span>
+                              <span className="text-gray-300 ml-1">{formatDate(row.paymentNoteBasicDto.dataLiquidacao)}</span>
+                            </div>
+                          </div>
+                          {row.financialPlanningBasicDto && (
+                            <div className="text-xs text-stone-500 mt-1">
+                              PF: <span className="text-amber-400">#{row.financialPlanningBasicDto.numberId}</span>
+                            </div>
+                          )}
+                          <div className="mt-3 pt-2 border-t border-white/10 flex justify-end">
+                            <Button variant="secondary" size="sm" onClick={() => startEdit(index, row)}>
+                              ✎ Editar
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                      {rowErrors[index] && (
+                        <div className="mt-2">
+                          <Alert variant="error" message={rowErrors[index]} onClose={() =>
+                            setRowErrors((prev) => { const n = { ...prev }; delete n[index]; return n; })
+                          } />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop: table view */}
+              <div className="hidden lg:block w-full overflow-x-auto p-4">
+                <table className="w-full text-xs divide-y divide-white/5">
                 <thead>
                   <tr className="border-b border-stone-600 text-[10px] uppercase tracking-widest text-stone-400 bg-stone-900/40">
                     <th className="px-3 py-3 text-left border-r border-white/10" colSpan={5}>
@@ -340,22 +453,22 @@ export default function Dashboard() {
                     <th className="px-3 py-3 text-center" colSpan={1}>Ações</th>
                   </tr>
                   <tr className="border-b border-white/10 text-[10px] uppercase tracking-widest text-stone-500 bg-stone-900/20">
-                  <th className="px-3 py-2 text-left">Nº NP</th>
-                  <th className="px-3 py-2 text-left">Data Liq.</th>
-                  <th className="px-3 py-2 text-left">CNPJ</th>
-                  <th className="px-3 py-2 text-left">Doc. Origem</th>
-                  <th className="px-3 py-2 text-right border-r border-white/10">Valor</th>
-                  <th className="px-3 py-2 text-left border-r border-white/10">Impostos</th>
-                  <th className="px-3 py-2 text-left">Vínculo</th>
-                  <th className="px-3 py-2 text-left">Nº Emp.</th>
-                  <th className="px-3 py-2 text-left">Ano</th>
-                  <th className="px-3 py-2 text-left">Fonte Origem</th>
-                  <th className="px-3 py-2 text-left">Plano Interno</th>
-                  <th className="px-3 py-2 text-left border-r border-white/10">Natureza</th>
-                  <th className="px-3 py-2 text-left">Nº PF</th>
-                  <th className="px-3 py-2 text-left">Data</th>
-                  <th className="px-3 py-2 text-left">Vínculo</th>
-                  <th className="px-3 py-2 text-left border-r border-white/10">Origem</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Nº NP</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Data Liq.</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">CNPJ</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Doc. Origem</th>
+                  <th className="px-3 py-2 text-right border-r border-white/10 whitespace-nowrap">Valor</th>
+                  <th className="px-3 py-2 text-left border-r border-white/10 whitespace-nowrap">Impostos</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Vínculo</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Nº Emp.</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Ano</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Fonte Origem</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Plano Interno</th>
+                  <th className="px-3 py-2 text-left border-r border-white/10 whitespace-nowrap">Natureza</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Nº PF</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Data</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Vínculo</th>
+                  <th className="px-3 py-2 text-left border-r border-white/10 whitespace-nowrap">Origem</th>
                   <th className="px-3 py-2 text-center">—</th>
                 </tr>
               </thead>
@@ -371,24 +484,21 @@ export default function Dashboard() {
                         className={`border-b border-stone-800 transition-colors duration-150 ${isEditing ? 'bg-amber-900/20 ring-1 ring-inset ring-amber-600/50' : 'hover:bg-stone-800/30 bg-transparent'
                           }`}
                       >
-                        {/* Nº NP */}
                         <td className="px-3 py-2.5">
                           {isEditing ? (
                             <div className="flex flex-col gap-1">
                               <input type="number" value={editing.numeroNp}
                                 onChange={(e) => updateEditField(index, 'numeroNp', e.target.value)}
-                                className="w-24 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" placeholder="Nº NP" />
+                                className="w-full min-w-0 sm:w-24 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" placeholder="Nº NP" />
                               <input type="number" value={editing.npAno}
                                 onChange={(e) => updateEditField(index, 'npAno', e.target.value)}
-                                className="w-20 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" placeholder="Ano" />
+                                className="w-full min-w-0 sm:w-20 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" placeholder="Ano" />
                             </div>
                           ) : (
                             <span className="text-amber-400 font-bold">{row.paymentNoteBasicDto.numeroNp}</span>
                           )}
                         </td>
-                        {/* Data Liq. */}
-                        <td className="px-3 py-2.5 text-gray-300">{formatDate(row.paymentNoteBasicDto.dataLiquidacao)}</td>
-                        {/* CNPJ */}
+                        <td className="px-3 py-2.5 text-gray-300 whitespace-nowrap">{formatDate(row.paymentNoteBasicDto.dataLiquidacao)}</td>
                         <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap">
                           <span title={row.paymentNoteBasicDto.empresa.nome}>{formatCNPJ(row.paymentNoteBasicDto.empresa.cnpj)}</span>
                           <br />
@@ -396,16 +506,13 @@ export default function Dashboard() {
                             {row.paymentNoteBasicDto.empresa.nome}
                           </span>
                         </td>
-                        {/* Doc Origin */}
                         <td className="px-3 py-2.5 text-gray-400">{row.paymentNoteBasicDto.docOrigin}</td>
-                        {/* Valor + Status */}
                         <td className="px-3 py-2.5 text-right border-r border-white/10">
                           <span className="text-amber-300 font-bold block">{formatCurrency(row.paymentNoteBasicDto.value)}</span>
                           <div className="mt-1 flex justify-end">
                             <StatusBadge status={row.paymentNoteBasicDto.status} />
                           </div>
                         </td>
-                        {/* Tax */}
                         <td className="px-3 py-2.5 border-r border-white/10">
                           {!row.paymentNoteBasicDto.tax ? (
                             <span className="px-2 py-1 rounded text-[10px] font-bold bg-stone-800 text-stone-500 border border-white/10">
@@ -425,68 +532,57 @@ export default function Dashboard() {
                             </div>
                           )}
                         </td>
-                        {/* Vínculo (Valor) */}
                         <td className="px-3 py-2.5 text-left border-r border-white/10">
                           {isEditing ? (
                             <input type="number" value={editing.valorVinculo}
                               onChange={(e) => updateEditField(index, 'valorVinculo', e.target.value)}
-                              className="w-24 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                              className="w-full min-w-0 sm:w-24 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
                           ) : (
                             <span className="text-amber-300 font-bold block">{formatCurrency(row.value)}</span>
                           )}
                         </td>
-                        {/* Nº Empenho */}
                         <td className="px-3 py-2.5">
                           {isEditing ? (
                             <input type="number" value={editing.numeroEmpenho}
                               onChange={(e) => updateEditField(index, 'numeroEmpenho', e.target.value)}
-                              className="w-24 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                              className="w-full min-w-0 sm:w-24 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
                           ) : (
                             <span className="text-amber-400 font-bold">{row.empenhoDto.numero}</span>
                           )}
                         </td>
-                        {/* Ano */}
                         <td className="px-3 py-2.5">
                           {isEditing ? (
                             <input type="number" value={editing.anoEmpenho}
                               onChange={(e) => updateEditField(index, 'anoEmpenho', e.target.value)}
-                              className="w-20 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                              className="w-full min-w-0 sm:w-20 bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
                           ) : (
                             <span className="text-gray-300">{row.empenhoDto.ano}</span>
                           )}
                         </td>
-                        {/* Fonte Origem */}
                         <td className="px-3 py-2.5 text-amber-300">{row.empenhoDto.fontDeOrigin}</td>
-                        {/* Plano Interno */}
                         <td className="px-3 py-2.5 text-gray-400">{row.empenhoDto.internalPlan}</td>
-                        {/* Natureza */}
                         <td className="px-3 py-2.5 text-gray-400 border-r border-white/10">{row.empenhoDto.nature}</td>
-                        {/* PF: Nº PF */}
                         <td className="px-3 py-2.5">
                           {isEditing ? (
                             <input type="number" value={editing.numeroFP}
                               onChange={(e) => updateEditField(index, 'numeroFP', e.target.value)}
                               placeholder="opcional"
-                              className="w-24 bg-stone-800 border border-stone-600 text-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder-stone-600" />
+                              className="w-full min-w-0 sm:w-24 bg-stone-800 border border-stone-600 text-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder-stone-600" />
                           ) : row.financialPlanningBasicDto ? (
                             <span className="text-amber-400 font-bold">{row.financialPlanningBasicDto.numberId}</span>
                           ) : (
                             <span className="text-stone-600">—</span>
                           )}
                         </td>
-                        {/* PF: Data */}
-                        <td className="px-3 py-2.5 text-gray-300">
+                        <td className="px-3 py-2.5 text-gray-300 whitespace-nowrap">
                           {row.financialPlanningBasicDto ? formatDate(row.financialPlanningBasicDto.data) : <span className="text-stone-600">—</span>}
                         </td>
-                        {/* PF: Vínculo */}
                         <td className="px-3 py-2.5 text-gray-400">
                           {row.financialPlanningBasicDto ? row.financialPlanningBasicDto.vinculation : <span className="text-stone-600">—</span>}
                         </td>
-                        {/* PF: Origem */}
                         <td className="px-3 py-2.5 text-gray-400 border-r border-white/10">
                           {row.financialPlanningBasicDto ? row.financialPlanningBasicDto.origin : <span className="text-stone-600">—</span>}
                         </td>
-                        {/* Ações */}
                         <td className="px-3 py-2.5 text-center">
                           {isEditing ? (
                             <div className="flex items-center justify-center gap-1.5">
@@ -504,7 +600,6 @@ export default function Dashboard() {
                           )}
                         </td>
                       </tr>
-                      {/* Linha de erro inline */}
                       {rowErrors[index] && (
                         <tr className="bg-transparent">
                           <td colSpan={16} className="px-3 pb-2">
@@ -519,9 +614,10 @@ export default function Dashboard() {
                 })}
               </tbody>
             </table>
-          </div>
+              </div>
+            </div>
 
-          <div className="flex items-center justify-between mt-4 px-2">
+            <div className="flex flex-col sm:flex-row items-center justify-between mt-4 px-2 gap-4 sm:gap-0">
             <span className="text-xs text-stone-500">
               Página {currentPage + 1} de {totalPages || 1}
               {totalElements > 0 && ` (${totalElements} registros)`}

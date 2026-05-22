@@ -31,7 +31,7 @@ export function applyCnpjMask(value: string): string {
 export function TableContainer({ title, count, children }: { title?: string; count?: number; children: React.ReactNode }) {
   return (
     <div className="glass-panel overflow-hidden animate-fadeIn">
-      <div className="p-5 overflow-x-auto">
+      <div className="p-3 sm:p-5 overflow-x-auto">
         {title && <SectionTitle>{title}{count !== undefined ? ` (${count})` : ''}</SectionTitle>}
         {children}
       </div>

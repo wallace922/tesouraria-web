@@ -85,8 +85,8 @@ export default function BuscaEmpenho() {
       <div className="glass-panel p-5">
         <SectionTitle>Buscar Empenho por Número e Ano</SectionTitle>
         <div className="flex flex-wrap items-end gap-3">
-        <Input label="Nº Empenho" type="number" placeholder="12345" value={sNumero} onChange={(e) => { setSNumero(e.target.value); setError(null); setAllResults([]); setShowAll(false); }} className="w-36" />
-        <Input label="Ano"        type="number" placeholder="2024"  value={sAno}    onChange={(e) => { setSAno(e.target.value); setError(null); setAllResults([]); setShowAll(false); }} className="w-28" />
+        <Input label="Nº Empenho" type="number" placeholder="12345" value={sNumero} onChange={(e) => { setSNumero(e.target.value); setError(null); setAllResults([]); setShowAll(false); }} className="w-full sm:w-36" />
+        <Input label="Ano"        type="number" placeholder="2024"  value={sAno}    onChange={(e) => { setSAno(e.target.value); setError(null); setAllResults([]); setShowAll(false); }} className="w-full sm:w-28" />
         <Button variant="ghost" size="md" loading={loading} onClick={handleSearch}>🔍 Buscar</Button>
         <Button variant="ghost" size="md" loading={loading} onClick={handleGetAll}>🔍 Buscar Todos</Button>
         </div>

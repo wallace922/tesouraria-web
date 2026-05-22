@@ -3,6 +3,7 @@ import PageShell from '../components/PageShell';
 import Tabs, { Tab } from '../components/Tabs';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import Select from '../components/Select';
 import Alert from '../components/Alert';
 import {
   saveEmpresa,
@@ -163,7 +164,7 @@ function FormEmpenho() {
     <div className="space-y-6">
       <div className="glass-panel p-5">
         <SectionTitle>Dados do Empenho</SectionTitle>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-2xl">
           <Input label="Nº Empenho" type="number" placeholder="12345" value={numero} onChange={(e) => setNumero(e.target.value)} />
           <Input label="Ano" type="number" placeholder="2024" value={ano} onChange={(e) => setAno(e.target.value)} />
           <Input label="Fonte de Origem" type="number" placeholder="100" value={fontDeOrigin} onChange={(e) => setFontDeOrigin(e.target.value)} />
@@ -228,7 +229,7 @@ function FormFinancialPlanning() {
     <div className="space-y-6">
       <div className="glass-panel p-5">
         <SectionTitle>Dados do Financial Planning</SectionTitle>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-2xl">
           <Input label="Nº ID" type="number" placeholder="1001" value={numberId} onChange={(e) => setNumberId(e.target.value)} />
           <Input label="Data" type="date" value={data} onChange={(e) => setData(e.target.value)} />
           <Input label="Vinculação" type="number" placeholder="0" value={vinculation} onChange={(e) => setVinculation(e.target.value)} />
@@ -362,23 +363,16 @@ function FormPaymentNote() {
       <div className="glass-panel p-5 space-y-6">
         <div>
           <SectionTitle>Dados Principais</SectionTitle>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-2xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-2xl">
             <Input label="Nº NP" type="number" placeholder="2024001" value={numeroNp} onChange={(e) => setNumeroNp(e.target.value)} />
             <Input label="Data Liquidação" type="date" value={dataLiq} onChange={(e) => setDataLiq(e.target.value)} />
             <Input label="Doc. Origem" placeholder="DOC-001" value={docOrigin} onChange={(e) => setDocOrigin(e.target.value)} />
             <Input label="Valor (R$)" type="number" step="0.01" placeholder="0.00" value={value} onChange={(e) => setValue(e.target.value)} />
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold uppercase tracking-widest text-stone-400">Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as PaymentNoteDto['status'])}
-                className="bg-stone-900 border border-stone-600 text-gray-200 text-sm rounded-md px-3 py-2 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
-              >
-                <option value="A_PAGAR">A Pagar</option>
-                <option value="PAGA">Paga</option>
-                <option value="CANCELADA">Cancelada</option>
-              </select>
-            </div>
+            <Select label="Status" value={status} onChange={e => setStatus(e.target.value as PaymentNoteDto['status'])} options={[
+              { value: 'A_PAGAR', label: 'A PAGAR' },
+              { value: 'PAGA', label: 'PAGA' },
+              { value: 'CANCELADA', label: 'CANCELADA' },
+            ]} />
           </div>
         </div>
 
@@ -417,20 +411,15 @@ function FormPaymentNote() {
         <div>
           <SectionTitle>Tributação</SectionTitle>
           <div className="space-y-4 max-w-2xl">
-            <div className="flex flex-col gap-1 w-48">
-              <label className="text-xs font-semibold uppercase tracking-widest text-stone-400">Tipo de Tributação</label>
-              <select
-                value={taxTipo}
-                onChange={(e) => setTaxTipo(e.target.value as TaxDto['tipo'])}
-                className="bg-stone-900 border border-stone-600 text-gray-200 text-sm rounded-md px-3 py-2 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30"
-              >
-                <option value="OPTANTE">Optante</option>
-                <option value="NAO_OPTANTE">Não Optante</option>
-              </select>
+            <div className="w-full sm:w-48">
+              <Select label="Tipo de Tributação" value={taxTipo} onChange={e => setTaxTipo(e.target.value as TaxDto['tipo'])} options={[
+                { value: 'OPTANTE', label: 'OPTANTE' },
+                { value: 'NAO_OPTANTE', label: 'NÃO OPTANTE' },
+              ]} />
             </div>
 
             {taxTipo === 'NAO_OPTANTE' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 animate-fadeIn">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fadeIn">
                 <Input label="Cód. EFD" type="number" placeholder="5929" value={codEfd} onChange={(e) => setCodEfd(e.target.value)} />
                 <Input label="IR (R$)" type="number" step="0.01" placeholder="0.00" value={ir} onChange={(e) => setIr(e.target.value)} />
                 <Input label="CSLL (R$)" type="number" step="0.01" placeholder="0.00" value={csll} onChange={(e) => setCsll(e.target.value)} />
@@ -462,7 +451,7 @@ function FormPaymentNote() {
             <Field label="Status" value={d.status} />
             <Field label="Tributação" value={d.tax?.tipo ?? '—'} />
             {d.tax?.tipo === 'NAO_OPTANTE' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
                 <Field label="Cód. EFD" value={d.tax?.codEfd ?? 0} />
                 <Field label="IR" value={formatCurrency(d.tax?.ir ?? 0)} />
                 <Field label="CSLL" value={formatCurrency(d.tax?.csll ?? 0)} />
@@ -485,14 +474,14 @@ export default function Cadastro() {
 
   return (
     <PageShell>
-      <div className="mx-6 mt-6 px-6 pt-6 pb-2 glass-panel">
+      <div className="mx-3 sm:mx-6 mt-3 sm:mt-6 px-3 sm:px-6 pt-3 sm:pt-6 pb-2 glass-panel">
         <h2 className="text-amber-400 font-black uppercase tracking-widest text-sm mb-4">
           ＋ Cadastro
         </h2>
         <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
       </div>
 
-      <div className="px-6 py-6">
+      <div className="px-3 sm:px-6 py-6">
         {activeTab === 'empresa' && <FormEmpresa />}
         {activeTab === 'empenho' && <FormEmpenho />}
         {activeTab === 'financialPlanning' && <FormFinancialPlanning />}

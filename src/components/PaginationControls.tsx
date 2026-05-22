@@ -32,7 +32,7 @@ export default function PaginationControls({
   };
 
   return (
-    <div className="flex items-center justify-between mt-4 px-2">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 px-2">
       <span className="text-xs text-stone-500">
         Página {currentPage + 1} de {totalPages}
         {totalElements !== undefined && ` (${totalElements} registros)`}

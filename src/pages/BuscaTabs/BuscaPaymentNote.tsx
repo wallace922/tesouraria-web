@@ -158,8 +158,8 @@ export default function BuscaPaymentNote() {
       <div className="glass-panel p-5">
         <SectionTitle>Buscar Payment Note por Nº e Ano</SectionTitle>
         <div className="flex flex-wrap items-end gap-3">
-        <Input label="Nº NP" type="number" placeholder="2024001" value={sNumero} onChange={(e) => { setSNumero(e.target.value); setError(null); setAllResults([]); setShowAll(false); }} className="w-36" />
-        <Input label="Ano" type="number" placeholder="2024" value={sAno} onChange={(e) => { setSAno(e.target.value); setError(null); setAllResults([]); setShowAll(false); }} className="w-44" />
+        <Input label="Nº NP" type="number" placeholder="2024001" value={sNumero} onChange={(e) => { setSNumero(e.target.value); setError(null); setAllResults([]); setShowAll(false); }} className="w-full sm:w-36" />
+        <Input label="Ano" type="number" placeholder="2024" value={sAno} onChange={(e) => { setSAno(e.target.value); setError(null); setAllResults([]); setShowAll(false); }} className="w-full sm:w-44" />
         <Button variant="ghost" size="md" loading={searching} onClick={handleSearch}>🔍 Buscar</Button>
         <Button variant="ghost" size="md" loading={searching} onClick={handleGetAll}>🔍 Buscar Todos</Button>
         </div>
@@ -170,7 +170,7 @@ export default function BuscaPaymentNote() {
       {editing && found && (
         <div className="glass-panel p-5 animate-fadeIn mt-6">
           <SectionTitle>Atualizar Payment Note</SectionTitle>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6 max-w-2xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 max-w-2xl">
             <Input label="Nº NP" type="number" value={numeroNp} onChange={e => setNumeroNp(e.target.value)} />
             <Input label="Data Liq." type="date" value={dataLiq} onChange={e => setDataLiq(e.target.value)} />
             <Input label="Doc. Origem" value={docOrigin} onChange={e => setDocOrigin(e.target.value)} />
@@ -217,7 +217,7 @@ export default function BuscaPaymentNote() {
               { value: 'NAO_OPTANTE', label: 'NÃO OPTANTE' },
             ]} />
             {taxTipo === 'NAO_OPTANTE' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                 <Input label="Cód. EFD" type="number" value={codEfd} onChange={e => setCodEfd(e.target.value)} />
                 <Input label="IR" type="number" value={ir} onChange={e => setIr(e.target.value)} />
                 <Input label="CSLL" type="number" value={csll} onChange={e => setCsll(e.target.value)} />
@@ -228,7 +228,7 @@ export default function BuscaPaymentNote() {
             )}
           </div>
 
-          <div className="flex gap-4 mt-6">
+          <div className="flex flex-col sm:flex-row gap-4 mt-6">
             <Button onClick={handleSave} loading={saving} disabled={cnpjValid === false || cnpjLoading}>Salvar Alterações</Button>
             <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
           </div>

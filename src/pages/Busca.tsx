@@ -23,14 +23,14 @@ export default function Busca() {
 
   return (
     <PageShell>
-      <div className="mx-6 mt-6 px-6 pt-6 pb-2 glass-panel">
+      <div className="mx-3 sm:mx-6 mt-3 sm:mt-6 px-3 sm:px-6 pt-3 sm:pt-6 pb-2 glass-panel">
         <h2 className="text-amber-400 font-black uppercase tracking-widest text-sm mb-4">
           🔍 Busca
         </h2>
         <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
       </div>
 
-      <div className="px-6 py-6">
+      <div className="px-3 sm:px-6 py-6">
         {activeTab === 'empresa'           && <BuscaEmpresa />}
         {activeTab === 'empenho'           && <BuscaEmpenho />}
         {activeTab === 'financialPlanning' && <BuscaFinancialPlanning />}
