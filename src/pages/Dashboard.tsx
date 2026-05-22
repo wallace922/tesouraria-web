@@ -24,6 +24,7 @@ interface RowEditState {
   numeroEmpenho: string;
   anoEmpenho: string;
   numeroFP: string;
+  anoFP: string;
   valorVinculo: string;
 }
 
@@ -179,6 +180,13 @@ export default function Dashboard() {
 
   // ── Inline Editing ─────────────────────────────────────────────────────────
 
+  function extractYear(dateStr: string): string {
+    if (!dateStr) return '';
+    if (dateStr.includes('/')) { const p = dateStr.split('/'); return p.length === 3 ? p[2] : ''; }
+    if (dateStr.includes('-')) { const p = dateStr.split('-'); return p.length >= 1 ? p[0] : ''; }
+    return '';
+  }
+
   function startEdit(index: number, row: PaymentNoteEmpenhoDto) {
     setRowErrors((prev) => { const n = { ...prev }; delete n[index]; return n; });
     setExpandedRows(prev => ({ ...prev, [index]: true }));
@@ -191,6 +199,7 @@ export default function Dashboard() {
         numeroEmpenho: String(row.empenhoDto.numero),
         anoEmpenho: String(row.empenhoDto.ano),
         numeroFP: row.financialPlanningBasicDto ? String(row.financialPlanningBasicDto.numero) : '',
+        anoFP: row.financialPlanningBasicDto ? extractYear(row.financialPlanningBasicDto.data) : '',
         valorVinculo: String(row.value),
       }
     }));
@@ -239,16 +248,14 @@ export default function Dashboard() {
       ? await findEmpenhoByNumeroEAno(empNum, empAno)
       : { data: originalRow.empenhoDto, status: 200, errorMessage: null };
 
+    const fpAnoRaw = editState.anoFP ? parseInt(editState.anoFP, 10) : null;
+    if (fpAlterado && fpNum && !fpAnoRaw) {
+      setRowErrors((prev) => ({ ...prev, [index]: 'Informe o Ano do PF para realizar a busca.' }));
+      setConfirmingMap((prev) => ({ ...prev, [index]: false }));
+      return;
+    }
     const fpResult = fpAlterado && fpNum
-      ? await (() => {
-          const pfData = originalRow.financialPlanningBasicDto?.data;
-          const fpAno = pfData
-            ? (pfData.includes('/') ? parseInt(pfData.split('/')[2], 10)
-               : pfData.includes('-') ? parseInt(pfData.split('-')[0], 10)
-               : new Date().getFullYear())
-            : new Date().getFullYear();
-          return findFinancialPlanningByNumber(fpNum, fpAno);
-        })()
+      ? await findFinancialPlanningByNumber(fpNum, fpAnoRaw!)
       : { data: fpAlterado ? null : (originalRow.financialPlanningBasicDto ?? null), status: 200, errorMessage: null };
 
     const erros: string[] = [];
@@ -371,11 +378,17 @@ export default function Dashboard() {
                                 onChange={(e) => updateEditField(index, 'anoEmpenho', e.target.value)}
                                 className="w-full bg-stone-800 border border-amber-600 text-amber-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500" />
                             </div>
-                            <div className="col-span-2">
+                            <div>
                               <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-1 block">Nº PF (opcional)</label>
                               <input type="number" value={editing.numeroFP}
                                 onChange={(e) => updateEditField(index, 'numeroFP', e.target.value)}
                                 className="w-full bg-stone-800 border border-stone-600 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder-stone-600" placeholder="opcional" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-1 block">Ano PF</label>
+                              <input type="number" value={editing.anoFP}
+                                onChange={(e) => updateEditField(index, 'anoFP', e.target.value)}
+                                className="w-full bg-stone-800 border border-stone-600 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder-stone-600" placeholder="Ex: 2024" />
                             </div>
                             <div className="col-span-2">
                               <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-1 block">Valor Vínculo</label>
@@ -601,12 +614,21 @@ export default function Dashboard() {
                                     <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold"><span className="text-amber-500 mr-1">■</span>Planejamento Financeiro</p>
                                     {isEditing ? (
                                       <div className="space-y-2">
-                                        <div>
-                                          <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-1 block">Nº PF (opcional)</label>
-                                          <input type="number" value={editing.numeroFP}
-                                            onChange={(e) => updateEditField(index, 'numeroFP', e.target.value)}
-                                            placeholder="opcional"
-                                            className="w-full bg-stone-800 border border-stone-600 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder-stone-600" />
+                                        <div className="flex gap-2">
+                                          <div className="flex-1">
+                                            <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-1 block">Nº PF (opcional)</label>
+                                            <input type="number" value={editing.numeroFP}
+                                              onChange={(e) => updateEditField(index, 'numeroFP', e.target.value)}
+                                              placeholder="opcional"
+                                              className="w-full bg-stone-800 border border-stone-600 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder-stone-600" />
+                                          </div>
+                                          <div className="w-20">
+                                            <label className="text-[10px] uppercase tracking-widest text-stone-500 mb-1 block">Ano PF</label>
+                                            <input type="number" value={editing.anoFP}
+                                              onChange={(e) => updateEditField(index, 'anoFP', e.target.value)}
+                                              placeholder="2024"
+                                              className="w-full bg-stone-800 border border-stone-600 text-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder-stone-600" />
+                                          </div>
                                         </div>
                                       </div>
                                     ) : row.financialPlanningBasicDto ? (
