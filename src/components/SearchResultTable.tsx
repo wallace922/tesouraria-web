@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { PaymentNoteDto } from '../types';
 import { formatCNPJ, formatCurrency, formatDate } from '../lib/utils';
 import EditIconButton from './EditIconButton';
+import TaxItemsDisplay from './TaxItemsDisplay';
 
 interface SearchResultTableProps {
   data: PaymentNoteDto[];
@@ -70,13 +71,15 @@ export default function SearchResultTable({ data, onEdit }: SearchResultTablePro
                         ) : np.tax.tipo === 'OPTANTE' ? (
                           <span className="px-2 py-1 rounded text-[10px] font-bold bg-emerald-900/50 text-emerald-300 border border-emerald-700 uppercase tracking-wider">Optante</span>
                         ) : (
-                          <div className="grid grid-cols-2 gap-1 text-xs">
-                            <div><span className="text-stone-500">IR:</span> <span className="text-gray-300 ml-1">{formatCurrency(np.tax.ir ?? 0)}</span></div>
-                            <div><span className="text-stone-500">CSLL:</span> <span className="text-gray-300 ml-1">{formatCurrency(np.tax.csll ?? 0)}</span></div>
-                            <div><span className="text-stone-500">COFINS:</span> <span className="text-gray-300 ml-1">{formatCurrency(np.tax.cofins ?? 0)}</span></div>
-                            <div><span className="text-stone-500">PIS:</span> <span className="text-gray-300 ml-1">{formatCurrency(np.tax.pisPasep ?? 0)}</span></div>
-                            <div><span className="text-stone-500">DARF:</span> <span className="text-gray-300 ml-1">{formatCurrency(np.tax.darf ?? 0)}</span></div>
-                            <div><span className="text-stone-500">Cód. EFD:</span> <span className="text-gray-300 ml-1">{np.tax.codEfd ?? 0}</span></div>
+                          <div className="space-y-1">
+                            <div className="text-xs text-stone-400">
+                              Cód. EFD: <span className="text-amber-300 font-mono">{np.tax.codEfd}</span>
+                            </div>
+                            {np.tax.calculatedItems && np.tax.calculatedItems.length > 0 ? (
+                              <TaxItemsDisplay items={np.tax.calculatedItems} taxStatus={np.tax.taxStatus} compact />
+                            ) : (
+                              <span className="text-stone-600 text-xs">Aguardando cálculo</span>
+                            )}
                           </div>
                         )}
                       </div>

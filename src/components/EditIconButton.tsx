@@ -1,13 +1,14 @@
 
-
 interface EditIconButtonProps {
   onClick: () => void;
+  title?: string;
 }
 
-export default function EditIconButton({ onClick }: EditIconButtonProps) {
+export default function EditIconButton({ onClick, title }: EditIconButtonProps) {
   return (
     <button
-      aria-label="Editar"
+      aria-label={title ?? 'Editar'}
+      title={title}
       className="text-amber-500/50 hover:text-amber-400 transition-colors p-1 rounded hover:bg-amber-500/10"
       onClick={onClick}
     >

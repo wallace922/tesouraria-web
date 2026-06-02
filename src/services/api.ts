@@ -5,6 +5,7 @@ import type {
   EmpenhoDto,
   FinancialPlanningDto,
   EmpresaDto,
+  TaxRuleDto,
 } from '../types';
 import { formatDate } from '../lib/utils';
 
@@ -41,7 +42,7 @@ function handleError<T>(error: unknown): ApiResult<T> {
   return { data: null, status: null, errorMessage: 'Erro inesperado. Consulte o console.' };
 }
 
-// ── PaymentNoteEmpenho ────────────────────────────────────────────────────────
+// ── Paginação ─────────────────────────────────────────────────────────────────
 
 export interface PageDto<T> {
   content: T[];
@@ -53,6 +54,8 @@ export interface PageDto<T> {
 }
 
 export type PaginatedResponse<T> = PageDto<T>;
+
+// ── PaymentNoteEmpenho ────────────────────────────────────────────────────────
 
 export async function getAllPaymentEmpenhos(
   page: number = 0,
@@ -119,16 +122,32 @@ export async function getAllNp(
 
 export async function savePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<PaymentNoteDto>> {
   try {
-    const res = await apiInstance.post<PaymentNoteDto>('/Np', dto);
+    // Envia apenas tipo e codEfd no tax — o backend calcula os itens
+    const payload = {
+      numeroNp: dto.numeroNp,
+      dataLiquidacao: formatDate(dto.dataLiquidacao),
+      empresa: { cnpj: dto.empresa.cnpj },
+      docOrigin: dto.docOrigin,
+      value: dto.value,
+      status: dto.status,
+      tax: dto.tax ? { tipo: dto.tax.tipo, codEfd: dto.tax.codEfd } : null,
+    };
+    const res = await apiInstance.post<PaymentNoteDto>('/Np', payload);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
 
 export async function updatePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<PaymentNoteDto>> {
   try {
+    // Envia apenas tipo e codEfd no tax — o backend recalcula os itens
     const payload = {
-      ...dto,
+      numeroNp: dto.numeroNp,
       dataLiquidacao: formatDate(dto.dataLiquidacao),
+      empresa: { cnpj: dto.empresa.cnpj },
+      docOrigin: dto.docOrigin,
+      value: dto.value,
+      status: dto.status,
+      tax: dto.tax ? { tipo: dto.tax.tipo, codEfd: dto.tax.codEfd } : null,
     };
     const res = await apiInstance.put<PaymentNoteDto>('/Np', payload);
     return { data: res.data, status: res.status, errorMessage: null };
@@ -244,3 +263,65 @@ export async function updateEmpresa(dto: EmpresaDto): Promise<ApiResult<EmpresaD
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
+
+// ── TaxRule ───────────────────────────────────────────────────────────────────
+
+/**
+ * GET /API/TaxRule — retorna lista simples (sem paginação), todas as versões.
+ */
+export async function getAllTaxRules(): Promise<ApiResult<TaxRuleDto[]>> {
+  try {
+    const res = await apiInstance.get<TaxRuleDto[]>('/TaxRule');
+    return { data: res.data, status: res.status, errorMessage: null };
+  } catch (e) { return handleError(e); }
+}
+
+/**
+ * GET /API/TaxRule/{id}
+ */
+export async function getTaxRuleById(id: number): Promise<ApiResult<TaxRuleDto>> {
+  try {
+    const res = await apiInstance.get<TaxRuleDto>(`/TaxRule/${id}`);
+    return { data: res.data, status: res.status, errorMessage: null };
+  } catch (e) { return handleError(e); }
+}
+
+/**
+ * POST /API/TaxRule — Cria uma nova versão de uma regra para um codEfd.
+ * Se já existir uma versão em aberto (dataFimVigencia nula), o backend encerra
+ * a versão anterior automaticamente, definindo sua dataFimVigencia.
+ */
+export async function createTaxRuleVersion(dto: Omit<TaxRuleDto, 'id'>): Promise<ApiResult<TaxRuleDto>> {
+  try {
+    const payload = {
+      ...dto,
+      dataInicioVigencia: formatDate(dto.dataInicioVigencia),
+      dataFimVigencia: dto.dataFimVigencia ? formatDate(dto.dataFimVigencia) : null,
+    };
+    const res = await apiInstance.post<TaxRuleDto>('/TaxRule', payload);
+    return { data: res.data, status: res.status, errorMessage: null };
+  } catch (e) { return handleError(e); }
+}
+
+/**
+ * PUT /API/TaxRule/{id} — Edita detalhes menores de uma versão específica.
+ * Use para corrigir `description`, `codigoReceita` ou `items`, ou para encerrar vigência
+ * fornecendo `dataFimVigencia`. Não cria nova versão.
+ * codEfd não é editável — o backend ignora o campo se enviado.
+ */
+export async function updateTaxRule(
+  id: number,
+  dto: Omit<TaxRuleDto, 'id' | 'codEfd'>
+): Promise<ApiResult<TaxRuleDto>> {
+  try {
+    const payload = {
+      ...dto,
+      codigoReceita: dto.codigoReceita,
+      dataInicioVigencia: formatDate(dto.dataInicioVigencia),
+      dataFimVigencia: dto.dataFimVigencia ? formatDate(dto.dataFimVigencia) : null,
+    };
+    const res = await apiInstance.put<TaxRuleDto>(`/TaxRule/${id}`, payload);
+    return { data: res.data, status: res.status, errorMessage: null };
+  } catch (e) { return handleError(e); }
+}
+

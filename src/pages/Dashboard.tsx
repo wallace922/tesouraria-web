@@ -14,6 +14,7 @@ import {
 import type { PaymentNoteEmpenhoDto } from '../types';
 import { formatCurrency, formatCNPJ, formatDate } from '../lib/utils';
 import { ReadField } from './BuscaTabs/Shared';
+import TaxItemsDisplay from '../components/TaxItemsDisplay';
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
 
@@ -590,14 +591,16 @@ export default function Dashboard() {
                                     ) : (
                                       <div className="space-y-1">
                                         <ReadField label="Tipo" value="Não Optante" />
-                                        <div className="grid grid-cols-2 gap-2">
-                                          <ReadField label="IR" value={formatCurrency(row.paymentNoteBasicDto.tax.ir ?? 0)} />
-                                          <ReadField label="CSLL" value={formatCurrency(row.paymentNoteBasicDto.tax.csll ?? 0)} />
-                                          <ReadField label="COFINS" value={formatCurrency(row.paymentNoteBasicDto.tax.cofins ?? 0)} />
-                                          <ReadField label="PIS" value={formatCurrency(row.paymentNoteBasicDto.tax.pisPasep ?? 0)} />
-                                          <ReadField label="DARF" value={formatCurrency(row.paymentNoteBasicDto.tax.darf ?? 0)} />
-                                          <ReadField label="Cód. EFD" value={row.paymentNoteBasicDto.tax.codEfd ?? 0} />
-                                        </div>
+                                        <ReadField label="Cód. EFD" value={row.paymentNoteBasicDto.tax.codEfd ?? 0} />
+                                        {row.paymentNoteBasicDto.tax.calculatedItems && row.paymentNoteBasicDto.tax.calculatedItems.length > 0 ? (
+                                          <TaxItemsDisplay
+                                            items={row.paymentNoteBasicDto.tax.calculatedItems}
+                                            taxStatus={row.paymentNoteBasicDto.tax.taxStatus}
+                                            compact
+                                          />
+                                        ) : (
+                                          <span className="text-stone-600 text-xs">Aguardando cálculo</span>
+                                        )}
                                       </div>
                                     )}
                                   </div>

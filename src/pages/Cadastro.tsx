@@ -5,11 +5,14 @@ import Button from '../components/Button';
 import Input from '../components/Input';
 import Select from '../components/Select';
 import Alert from '../components/Alert';
+import TaxItemsDisplay from '../components/TaxItemsDisplay';
+import TaxRuleItemEditor from '../components/TaxRuleItemEditor';
 import {
   saveEmpresa,
   saveEmpenho,
   saveFinancialPlanning,
   savePaymentNote,
+  createTaxRuleVersion,
   findEmpresaByCnpj,
 } from '../services/api';
 import type {
@@ -17,17 +20,20 @@ import type {
   EmpenhoDto,
   FinancialPlanningDto,
   PaymentNoteDto,
-  TaxDto,
+  TaxRuleDto,
+  TaxRuleItemDto,
+  OptanteStatus,
 } from '../types';
 import { formatCNPJ, formatCurrency, formatDate } from '../lib/utils';
 
 // ── Tabs config ───────────────────────────────────────────────────────────────
 
 const TABS: Tab[] = [
-  { key: 'empresa', label: 'Empresa', icon: '🏢' },
-  { key: 'empenho', label: 'Empenho', icon: '📄' },
+  { key: 'empresa',           label: 'Empresa',            icon: '🏢' },
+  { key: 'empenho',           label: 'Empenho',            icon: '📄' },
   { key: 'financialPlanning', label: 'Financial Planning', icon: '📊' },
-  { key: 'paymentNote', label: 'Payment Note', icon: '💰' },
+  { key: 'paymentNote',       label: 'Payment Note',       icon: '💰' },
+  { key: 'taxRule',           label: 'Regra de Imposto',   icon: '📋' },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -81,8 +87,7 @@ function FormEmpresa() {
   function handleCnpj(v: string) { setCnpj(applyCnpjMask(v)); }
 
   async function handleSave() {
-    setError(null);
-    setSuccess(null);
+    setError(null); setSuccess(null);
     if (!nome.trim() || cnpj.replace(/\D/g, '').length !== 14) {
       setError('Preencha o Nome e um CNPJ válido (14 dígitos).');
       return;
@@ -90,12 +95,8 @@ function FormEmpresa() {
     setLoading(true);
     const dto: EmpresaDto = { nome: nome.trim(), cnpj: cnpj.replace(/\D/g, '') };
     const result = await saveEmpresa(dto);
-    if (result.data) {
-      setSuccess(result.data);
-      setNome(''); setCnpj('');
-    } else {
-      setError(result.errorMessage ?? 'Erro ao salvar empresa.');
-    }
+    if (result.data) { setSuccess(result.data); setNome(''); setCnpj(''); }
+    else { setError(result.errorMessage ?? 'Erro ao salvar empresa.'); }
     setLoading(false);
   }
 
@@ -115,6 +116,7 @@ function FormEmpresa() {
       {success && (
         <SuccessCard data={success} renderFn={(d) => (
           <>
+            {d.id !== undefined && <Field label="ID" value={d.id} />}
             <Field label="Nome" value={d.nome} />
             <Field label="CNPJ" value={formatCNPJ(d.cnpj)} />
           </>
@@ -154,9 +156,7 @@ function FormEmpenho() {
     if (result.data) {
       setSuccess(result.data);
       setNumero(''); setAno(''); setFontDeOrigin(''); setInternalPlan(''); setNature('');
-    } else {
-      setError(result.errorMessage ?? 'Erro ao salvar.');
-    }
+    } else { setError(result.errorMessage ?? 'Erro ao salvar.'); }
     setLoading(false);
   }
 
@@ -179,6 +179,7 @@ function FormEmpenho() {
       {success && (
         <SuccessCard data={success} renderFn={(d) => (
           <>
+            {d.id !== undefined && <Field label="ID" value={d.id} />}
             <Field label="Nº Empenho" value={d.numero} />
             <Field label="Ano" value={d.ano} />
             <Field label="Fonte de Origem" value={d.fontDeOrigin} />
@@ -204,10 +205,7 @@ function FormFinancialPlanning() {
 
   async function handleSave() {
     setError(null); setSuccess(null);
-    if (!numero || !data || !vinculation || !origin) {
-      setError('Todos os campos são obrigatórios.');
-      return;
-    }
+    if (!numero || !data || !vinculation || !origin) { setError('Todos os campos são obrigatórios.'); return; }
     setLoading(true);
     const dto: FinancialPlanningDto = {
       numero: parseInt(numero, 10),
@@ -219,9 +217,7 @@ function FormFinancialPlanning() {
     if (result.data) {
       setSuccess(result.data);
       setNumero(''); setData(''); setVinculation(''); setOrigin('');
-    } else {
-      setError(result.errorMessage ?? 'Erro ao salvar financial planning.');
-    }
+    } else { setError(result.errorMessage ?? 'Erro ao salvar financial planning.'); }
     setLoading(false);
   }
 
@@ -243,6 +239,7 @@ function FormFinancialPlanning() {
       {success && (
         <SuccessCard data={success} renderFn={(d) => (
           <>
+            {d.id !== undefined && <Field label="ID" value={d.id} />}
             <Field label="Número" value={d.numero} />
             <Field label="Data" value={formatDate(d.data)} />
             <Field label="Vinculação" value={d.vinculation} />
@@ -267,71 +264,31 @@ function FormPaymentNote() {
   const [cnpjLoading, setCnpjLoading] = useState(false);
   const [cnpjError, setCnpjError] = useState<string | null>(null);
   const [empresaNome, setEmpresaNome] = useState('');
-  const [taxTipo, setTaxTipo] = useState<TaxDto['tipo']>('OPTANTE');
+  // Tributação — apenas tipo e codEfd (backend calcula os itens)
+  const [taxTipo, setTaxTipo] = useState<OptanteStatus>('OPTANTE');
   const [codEfd, setCodEfd] = useState('');
-  const [ir, setIr] = useState('');
-  const [csll, setCsll] = useState('');
-  const [cofins, setCofins] = useState('');
-  const [pisPasep, setPisPasep] = useState('');
-  const [darf, setDarf] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<PaymentNoteDto | null>(null);
 
-  function handleCnpj(v: string) {
-    setCnpj(applyCnpjMask(v));
-    setCnpjValid(null);
-    setCnpjError(null);
-    setEmpresaNome('');
-  }
+  function handleCnpj(v: string) { setCnpj(applyCnpjMask(v)); setCnpjValid(null); setCnpjError(null); setEmpresaNome(''); }
 
   async function handleCnpjBlur() {
     const raw = cnpj.replace(/\D/g, '');
-    if (raw.length !== 14) {
-      setCnpjError('CNPJ inválido. Deve conter 14 dígitos.');
-      setCnpjValid(false);
-      return;
-    }
-    setCnpjLoading(true);
-    setCnpjError(null);
+    if (raw.length !== 14) { setCnpjError('CNPJ inválido. Deve conter 14 dígitos.'); setCnpjValid(false); return; }
+    setCnpjLoading(true); setCnpjError(null);
     const result = await findEmpresaByCnpj(raw);
-    if (result.data) {
-      setCnpjValid(true);
-      setEmpresaNome(result.data.nome);
-    } else {
-      setCnpjValid(false);
-      setCnpjError('Empresa não encontrada para este CNPJ. Cadastre a empresa primeiro.');
-    }
+    if (result.data) { setCnpjValid(true); setEmpresaNome(result.data.nome); }
+    else { setCnpjValid(false); setCnpjError('Empresa não encontrada para este CNPJ. Cadastre a empresa primeiro.'); }
     setCnpjLoading(false);
   }
 
   async function handleSave() {
     setError(null); setSuccess(null);
-    if (!numeroNp || !dataLiq || !docOrigin || !value) {
-      setError('Preencha todos os campos obrigatórios.');
-      return;
-    }
-    if (!cnpjValid) {
-      setError('Valide o CNPJ antes de salvar (campo deve estar com empresa encontrada).');
-      return;
-    }
-    if (taxTipo === 'NAO_OPTANTE' && !codEfd) {
-      setError('Informe o Cód. EFD para tributo Não Optante.');
-      return;
-    }
+    if (!numeroNp || !dataLiq || !docOrigin || !value) { setError('Preencha todos os campos obrigatórios.'); return; }
+    if (!cnpjValid) { setError('Valide o CNPJ antes de salvar (campo deve estar com empresa encontrada).'); return; }
+    if (taxTipo === 'NAO_OPTANTE' && !codEfd) { setError('Informe o Cód. EFD para tributo Não Optante.'); return; }
     setLoading(true);
-
-    const tax: TaxDto = taxTipo === 'OPTANTE'
-      ? { tipo: 'OPTANTE', codEfd: 0, ir: 0, csll: 0, cofins: 0, pisPasep: 0, darf: 0 }
-      : {
-        tipo: 'NAO_OPTANTE',
-        codEfd: parseInt(codEfd, 10),
-        ir: parseFloat(ir) || 0,
-        csll: parseFloat(csll) || 0,
-        cofins: parseFloat(cofins) || 0,
-        pisPasep: parseFloat(pisPasep) || 0,
-        darf: parseFloat(darf) || 0,
-      };
 
     const dto: PaymentNoteDto = {
       numeroNp: parseInt(numeroNp, 10),
@@ -340,7 +297,10 @@ function FormPaymentNote() {
       docOrigin: docOrigin.trim(),
       value: parseFloat(value),
       status,
-      tax,
+      tax: {
+        tipo: taxTipo,
+        codEfd: taxTipo === 'NAO_OPTANTE' ? parseInt(codEfd, 10) : 0,
+      },
     };
 
     const result = await savePaymentNote(dto);
@@ -348,15 +308,10 @@ function FormPaymentNote() {
       setSuccess(result.data);
       setNumeroNp(''); setDataLiq(''); setDocOrigin(''); setValue('');
       setCnpj(''); setCnpjValid(null); setEmpresaNome('');
-      setTaxTipo('OPTANTE'); setCodEfd(''); setIr(''); setCsll(''); setCofins(''); setPisPasep(''); setDarf('');
-      setStatus('A_PAGAR');
-    } else {
-      setError(result.errorMessage ?? 'Erro ao salvar Payment Note.');
-    }
+      setTaxTipo('OPTANTE'); setCodEfd(''); setStatus('A_PAGAR');
+    } else { setError(result.errorMessage ?? 'Erro ao salvar Payment Note.'); }
     setLoading(false);
   }
-
-  const saveDisabled = cnpjValid === false || loading;
 
   return (
     <div className="space-y-6">
@@ -376,21 +331,13 @@ function FormPaymentNote() {
           </div>
         </div>
 
-        {/* Empresa via CNPJ */}
         <div>
           <SectionTitle>Empresa (Validação por CNPJ)</SectionTitle>
           <div className="max-w-sm space-y-2">
             <div className="flex items-end gap-3">
-              <Input
-                label="CNPJ da Empresa"
-                placeholder="XX.XXX.XXX/XXXX-XX"
-                value={cnpj}
-                onChange={(e) => handleCnpj(e.target.value)}
-                onBlur={handleCnpjBlur}
-                maxLength={18}
-                className="flex-1"
-                error={cnpjError ?? undefined}
-              />
+              <Input label="CNPJ da Empresa" placeholder="XX.XXX.XXX/XXXX-XX" value={cnpj}
+                onChange={(e) => handleCnpj(e.target.value)} onBlur={handleCnpjBlur}
+                maxLength={18} className="flex-1" error={cnpjError ?? undefined} />
               {cnpjLoading && (
                 <span className="mb-2 text-stone-400 text-xs flex items-center gap-1">
                   <span className="inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
@@ -400,32 +347,29 @@ function FormPaymentNote() {
             </div>
             {cnpjValid === true && (
               <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono">
-                <span>✔</span>
-                <span>{empresaNome}</span>
+                <span>✔</span><span>{empresaNome}</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Tributação */}
+        {/* Tributação — apenas tipo e codEfd */}
         <div>
           <SectionTitle>Tributação</SectionTitle>
           <div className="space-y-4 max-w-2xl">
             <div className="w-full sm:w-48">
-              <Select label="Tipo de Tributação" value={taxTipo} onChange={e => setTaxTipo(e.target.value as TaxDto['tipo'])} options={[
+              <Select label="Tipo de Tributação" value={taxTipo} onChange={e => setTaxTipo(e.target.value as OptanteStatus)} options={[
                 { value: 'OPTANTE', label: 'OPTANTE' },
                 { value: 'NAO_OPTANTE', label: 'NÃO OPTANTE' },
               ]} />
             </div>
-
             {taxTipo === 'NAO_OPTANTE' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fadeIn">
-                <Input label="Cód. EFD" type="number" placeholder="5929" value={codEfd} onChange={(e) => setCodEfd(e.target.value)} />
-                <Input label="IR (R$)" type="number" step="0.01" placeholder="0.00" value={ir} onChange={(e) => setIr(e.target.value)} />
-                <Input label="CSLL (R$)" type="number" step="0.01" placeholder="0.00" value={csll} onChange={(e) => setCsll(e.target.value)} />
-                <Input label="COFINS (R$)" type="number" step="0.01" placeholder="0.00" value={cofins} onChange={(e) => setCofins(e.target.value)} />
-                <Input label="PIS/Pasep (R$)" type="number" step="0.01" placeholder="0.00" value={pisPasep} onChange={(e) => setPisPasep(e.target.value)} />
-                <Input label="DARF (R$)" type="number" step="0.01" placeholder="0.00" value={darf} onChange={(e) => setDarf(e.target.value)} />
+              <div className="animate-fadeIn">
+                <Input label="Cód. EFD" type="number" placeholder="17001" value={codEfd}
+                  onChange={(e) => setCodEfd(e.target.value)} className="w-full sm:w-48" />
+                <p className="text-stone-500 text-xs mt-1">
+                  O backend calculará os impostos automaticamente com base na Regra de Imposto do Cód. EFD.
+                </p>
               </div>
             )}
           </div>
@@ -433,7 +377,7 @@ function FormPaymentNote() {
 
         <div className="space-y-3">
           {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
-          <Button variant="primary" loading={loading} disabled={saveDisabled} onClick={handleSave}>
+          <Button variant="primary" loading={loading} disabled={cnpjValid === false || loading} onClick={handleSave}>
             Cadastrar Payment Note
           </Button>
         </div>
@@ -442,6 +386,7 @@ function FormPaymentNote() {
       {success && (
         <SuccessCard data={success} renderFn={(d) => (
           <>
+            {d.id !== undefined && <Field label="ID" value={d.id} />}
             <Field label="Nº NP" value={d.numeroNp} />
             <Field label="Data Liq." value={formatDate(d.dataLiquidacao)} />
             <Field label="Empresa" value={d.empresa.nome} />
@@ -450,14 +395,13 @@ function FormPaymentNote() {
             <Field label="Valor" value={formatCurrency(d.value)} />
             <Field label="Status" value={d.status} />
             <Field label="Tributação" value={d.tax?.tipo ?? '—'} />
-            {d.tax?.tipo === 'NAO_OPTANTE' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
-                <Field label="Cód. EFD" value={d.tax?.codEfd ?? 0} />
-                <Field label="IR" value={formatCurrency(d.tax?.ir ?? 0)} />
-                <Field label="CSLL" value={formatCurrency(d.tax?.csll ?? 0)} />
-                <Field label="COFINS" value={formatCurrency(d.tax?.cofins ?? 0)} />
-                <Field label="PIS/Pasep" value={formatCurrency(d.tax?.pisPasep ?? 0)} />
-                <Field label="DARF" value={formatCurrency(d.tax?.darf ?? 0)} />
+            {d.tax?.tipo === 'NAO_OPTANTE' && d.tax.codEfd && (
+              <Field label="Cód. EFD" value={d.tax.codEfd} />
+            )}
+            {/* Impostos calculados retornados pelo backend */}
+            {d.tax?.calculatedItems && d.tax.calculatedItems.length > 0 && (
+              <div className="mt-4">
+                <TaxItemsDisplay items={d.tax.calculatedItems} taxStatus={d.tax.taxStatus} />
               </div>
             )}
           </>
@@ -467,7 +411,134 @@ function FormPaymentNote() {
   );
 }
 
+// ── Sub-formulário: Tax Rule ──────────────────────────────────────────────────
+
+function FormTaxRule() {
+  const [codEfd, setCodEfd] = useState('');
+  const [codigoReceita, setCodigoReceita] = useState('');
+  const [description, setDescription] = useState('');
+  const [inicioVigencia, setInicioVigencia] = useState('');
+  const [fimVigencia, setFimVigencia] = useState('');
+  const [items, setItems] = useState<TaxRuleItemDto[]>([{ taxType: '', rate: 0 }]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<TaxRuleDto | null>(null);
+
+  async function handleSave() {
+    setError(null); setSuccess(null);
+    if (!codEfd) { setError('Informe o Cód. EFD.'); return; }
+    if (!codigoReceita) { setError('Informe o Código de Receita.'); return; }
+    if (!description.trim()) { setError('A descrição é obrigatória.'); return; }
+    if (description.trim().length > 300) { setError('A descrição deve ter no máximo 300 caracteres.'); return; }
+    if (!inicioVigencia) { setError('A data de início de vigência é obrigatória.'); return; }
+    if (items.length === 0) { setError('Adicione pelo menos um imposto.'); return; }
+    if (items.some(it => !it.taxType.trim())) { setError('Todos os tipos de imposto devem ser preenchidos.'); return; }
+    if (items.some(it => it.rate <= 0)) { setError('Todas as alíquotas devem ser maiores que zero.'); return; }
+    setLoading(true);
+
+    const dto: Omit<TaxRuleDto, 'id'> = {
+      codEfd: parseInt(codEfd, 10),
+      codigoReceita: parseInt(codigoReceita, 10),
+      description: description.trim(),
+      dataInicioVigencia: inicioVigencia,
+      dataFimVigencia: fimVigencia || null,
+      items,
+    };
+
+    const result = await createTaxRuleVersion(dto);
+    if (result.data) {
+      setSuccess(result.data);
+      setCodEfd(''); setCodigoReceita(''); setDescription('');
+      setInicioVigencia(''); setFimVigencia('');
+      setItems([{ taxType: '', rate: 0 }]);
+    } else { setError(result.errorMessage ?? 'Erro ao cadastrar Regra de Imposto.'); }
+    setLoading(false);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="glass-panel p-5 space-y-6">
+        <div>
+          <SectionTitle>Dados da Regra de Imposto</SectionTitle>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl">
+            <Input label="Cód. EFD" type="number" placeholder="17001" value={codEfd} onChange={(e) => setCodEfd(e.target.value)} />
+            <Input label="Código de Receita" type="number" placeholder="1001" value={codigoReceita} onChange={(e) => setCodigoReceita(e.target.value)} />
+            <Input label="Descrição" placeholder="Serviços de Tecnologia..." value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} />
+          </div>
+          <p className="text-[10px] text-stone-600 mt-1">Descrição: {description.length}/300 caracteres</p>
+        </div>
+
+        <div>
+          <SectionTitle>Vigência</SectionTitle>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">
+                Início de Vigência <span className="text-amber-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={inicioVigencia}
+                onChange={e => setInicioVigencia(e.target.value)}
+                className="rounded-lg border border-white/10 bg-black/40 text-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-amber-500/60"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">
+                Fim de Vigência <span className="text-stone-600 ml-1">(opcional)</span>
+              </label>
+              <input
+                type="date"
+                value={fimVigencia}
+                onChange={e => setFimVigencia(e.target.value)}
+                className="rounded-lg border border-white/10 bg-black/40 text-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-amber-500/60"
+              />
+              <p className="text-[10px] text-stone-600">Deixe em branco se não há previsão de encerramento.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-2xl">
+          <SectionTitle>Itens de Imposto</SectionTitle>
+          <TaxRuleItemEditor items={items} onChange={setItems} />
+        </div>
+
+        <div className="space-y-3">
+          {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
+          <Button variant="primary" loading={loading} onClick={handleSave}>
+            Cadastrar Regra de Imposto
+          </Button>
+        </div>
+      </div>
+
+      {success && (
+        <SuccessCard data={success} renderFn={(d) => (
+          <>
+            {d.id !== undefined && <Field label="ID" value={d.id} />}
+            <Field label="Cód. EFD" value={d.codEfd} />
+            <Field label="Cód. Receita" value={d.codigoReceita} />
+            <Field label="Descrição" value={d.description} />
+            <Field label="Início Vigência" value={d.dataInicioVigencia} />
+            <Field label="Fim Vigência" value={d.dataFimVigencia ?? 'Em aberto'} />
+            <div className="mt-3">
+              <span className="text-stone-500">Impostos configurados:</span>
+              <div className="mt-1 space-y-1">
+                {d.items.map((it, idx) => (
+                  <div key={idx} className="flex gap-4">
+                    <span className="text-amber-300 font-bold w-24">{it.taxType}</span>
+                    <span className="text-gray-300">{(it.rate * 100).toFixed(4).replace(/\.?0+$/, '')}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )} />
+      )}
+    </div>
+  );
+}
+
 // ── Página principal ──────────────────────────────────────────────────────────
+
 
 export default function Cadastro() {
   const [activeTab, setActiveTab] = useState('empresa');
@@ -482,10 +553,11 @@ export default function Cadastro() {
       </div>
 
       <div className="px-3 sm:px-6 py-6">
-        {activeTab === 'empresa' && <FormEmpresa />}
-        {activeTab === 'empenho' && <FormEmpenho />}
+        {activeTab === 'empresa'           && <FormEmpresa />}
+        {activeTab === 'empenho'           && <FormEmpenho />}
         {activeTab === 'financialPlanning' && <FormFinancialPlanning />}
-        {activeTab === 'paymentNote' && <FormPaymentNote />}
+        {activeTab === 'paymentNote'       && <FormPaymentNote />}
+        {activeTab === 'taxRule'           && <FormTaxRule />}
       </div>
     </PageShell>
   );
