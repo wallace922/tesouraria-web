@@ -6,6 +6,8 @@ import type {
   FinancialPlanningDto,
   EmpresaDto,
   TaxRuleDto,
+  PaymentNoteVinculacaoDto,
+  PaymentNoteEmpenhoBasicDto,
 } from '../types';
 import { formatDate } from '../lib/utils';
 
@@ -94,6 +96,40 @@ export async function updatePaymentEmpenho(dto: PaymentNoteEmpenhoDto): Promise<
       value: dto.value,
     };
     const res = await apiInstance.put<PaymentNoteEmpenhoDto>('/PaymentEmpenho', payload);
+    return { data: res.data, status: res.status, errorMessage: null };
+  } catch (e) { return handleError(e); }
+}
+
+/**
+ * GET /API/PaymentEmpenho/por-mes-ano
+ * Relatório de PaymentNotes associadas a FinancialPlanning em um mês/ano.
+ */
+export async function getPaymentEmpenhoByMesAno(
+  mes: number,
+  ano: number,
+  page: number = 0,
+  size: number = 20
+): Promise<ApiResult<PaginatedResponse<PaymentNoteVinculacaoDto>>> {
+  try {
+    const res = await apiInstance.get<PaginatedResponse<PaymentNoteVinculacaoDto>>('/PaymentEmpenho/por-mes-ano', {
+      params: { mes, ano, page, size },
+    });
+    return { data: res.data, status: res.status, errorMessage: null };
+  } catch (e) { return handleError(e); }
+}
+
+/**
+ * GET /API/PaymentEmpenho/sem-planejamento
+ * Lista vínculos PaymentNoteEmpenho sem FinancialPlanning associado.
+ */
+export async function getPaymentEmpenhoSemPlanejamento(
+  page: number = 0,
+  size: number = 20
+): Promise<ApiResult<PaginatedResponse<PaymentNoteEmpenhoBasicDto>>> {
+  try {
+    const res = await apiInstance.get<PaginatedResponse<PaymentNoteEmpenhoBasicDto>>('/PaymentEmpenho/sem-planejamento', {
+      params: { page, size },
+    });
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PageShell from '../components/PageShell';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -69,6 +70,7 @@ function extractNpYear(dataLiquidacao: string): number | null {
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<PaymentNoteEmpenhoDto[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
@@ -294,9 +296,18 @@ export default function Dashboard() {
     <PageShell>
       {/* ── Quick Save Bar ─────────────────────────────────────────────────── */}
       <div className="mx-3 sm:mx-6 mt-6 p-4 glass-panel">
-        <p className="text-[10px] uppercase tracking-widest text-stone-500 mb-3 font-bold">
-          ▶ Cadastro Rápido de Vínculo
-        </p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">
+            ▶ Cadastro Rápido de Vínculo
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate('/pfnr')}
+          >
+            🔗 PFNR
+          </Button>
+        </div>
         <div className="flex flex-wrap items-end gap-3">
           <Input label="Nº NP" type="number" placeholder="Ex: 2024001"
             value={quickNp} onChange={(e) => setQuickNp(e.target.value)} className="w-full sm:w-36" />

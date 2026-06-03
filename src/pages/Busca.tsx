@@ -7,6 +7,7 @@ import BuscaEmpenho from './BuscaTabs/BuscaEmpenho';
 import BuscaFinancialPlanning from './BuscaTabs/BuscaFinancialPlanning';
 import BuscaPaymentNote from './BuscaTabs/BuscaPaymentNote';
 import BuscaTaxRule from './BuscaTabs/BuscaTaxRule';
+import BuscaDarf from './BuscaTabs/BuscaDarf';
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,7 @@ const TABS: Tab[] = [
   { key: 'financialPlanning', label: 'Financial Planning', icon: '📊' },
   { key: 'paymentNote',       label: 'Payment Note',       icon: '💰' },
   { key: 'taxRule',           label: 'Regra de Imposto',   icon: '📋' },
+  { key: 'darf',              label: 'Darf',               icon: '🧾' },
 ];
 
 // ── Página principal ──────────────────────────────────────────────────────────
@@ -38,6 +40,7 @@ export default function Busca() {
         {activeTab === 'financialPlanning' && <BuscaFinancialPlanning />}
         {activeTab === 'paymentNote'       && <BuscaPaymentNote />}
         {activeTab === 'taxRule'           && <BuscaTaxRule />}
+        {activeTab === 'darf'              && <BuscaDarf />}
       </div>
     </PageShell>
   );

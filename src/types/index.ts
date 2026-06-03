@@ -55,6 +55,14 @@ export interface TaxDto {
   id?: number;
   tipo: OptanteStatus;
   codEfd: number;
+  /** Código de agrupamento de receita — presente nos retornos do backend. */
+  codigoReceita?: number;
+  /**
+   * Descrição legível da TaxRule vigente no momento do cálculo.
+   * Campo somente-leitura (read-only) — não deve ser enviado em POST/PUT.
+   * Pode ser null para notas antigas ou com status PENDING/EXEMPT.
+   */
+  taxRuleDescription?: string | null;
   taxStatus?: TaxStatus;
   calculatedItems?: TaxCalculatedItem[];
 }
@@ -79,6 +87,36 @@ export interface PaymentNoteEmpenhoDto {
   paymentNoteBasicDto: PaymentNoteDto;
   empenhoDto: EmpenhoDto;
   financialPlanningBasicDto: FinancialPlanningDto | null;
+  value: number;
+}
+
+// ── Novos DTOs de relatório ───────────────────────────────────────────────────
+
+/**
+ * PaymentNoteVinculacaoDto — retornado por GET /API/PaymentEmpenho/por-mes-ano
+ * Contém todos os campos de PaymentNoteDto mais o campo `vinculation` do PF.
+ */
+export interface PaymentNoteVinculacaoDto {
+  id: number;
+  numeroNp: number;
+  dataLiquidacao: string;
+  empresa: EmpresaDto;
+  docOrigin: string;
+  value: number;
+  status: 'CANCELADA' | 'PAGA' | 'A_PAGAR';
+  vinculation: number;
+  tax: TaxDto | null;
+}
+
+/**
+ * PaymentNoteEmpenhoBasicDto — retornado por GET /API/PaymentEmpenho/sem-planejamento
+ * Vínculo sem FinancialPlanning associado.
+ */
+export interface PaymentNoteEmpenhoBasicDto {
+  id: number;
+  paymentNote: PaymentNoteDto;
+  empenho: EmpenhoDto;
+  financialPlanning: null;
   value: number;
 }
 
