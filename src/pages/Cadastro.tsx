@@ -66,6 +66,15 @@ function Field({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+function FieldLong({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-stone-500 text-xs">{label}:</span>
+      <span className="text-amber-300 font-bold break-words whitespace-pre-wrap">{value}</span>
+    </div>
+  );
+}
+
 function applyCnpjMask(value: string): string {
   const d = value.replace(/\D/g, '').slice(0, 14);
   return d
@@ -463,9 +472,21 @@ function FormTaxRule() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl">
             <Input label="Cód. EFD" type="number" placeholder="17001" value={codEfd} onChange={(e) => setCodEfd(e.target.value)} />
             <Input label="Código de Receita" type="number" placeholder="1001" value={codigoReceita} onChange={(e) => setCodigoReceita(e.target.value)} />
-            <Input label="Descrição" placeholder="Serviços de Tecnologia..." value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} />
+            <div className="md:col-span-3 flex flex-col gap-1">
+              <label className="text-xs font-semibold uppercase tracking-widest text-stone-400">
+                Descrição <span className="text-amber-500">*</span>
+              </label>
+              <textarea
+                rows={3}
+                maxLength={300}
+                placeholder="Serviços de Tecnologia..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="bg-black/60 border border-white/20 text-gray-200 text-sm rounded-md px-3 py-2 placeholder-stone-500 focus:outline-none focus:ring-2 focus:border-amber-500 focus:ring-amber-500/30 transition-all duration-150 resize-none"
+              />
+              <p className="text-[10px] text-stone-600">{description.length}/300 caracteres</p>
+            </div>
           </div>
-          <p className="text-[10px] text-stone-600 mt-1">Descrição: {description.length}/300 caracteres</p>
         </div>
 
         <div>
@@ -516,7 +537,7 @@ function FormTaxRule() {
             {d.id !== undefined && <Field label="ID" value={d.id} />}
             <Field label="Cód. EFD" value={d.codEfd} />
             <Field label="Cód. Receita" value={d.codigoReceita} />
-            <Field label="Descrição" value={d.description} />
+            <FieldLong label="Descrição" value={d.description} />
             <Field label="Início Vigência" value={d.dataInicioVigencia} />
             <Field label="Fim Vigência" value={d.dataFimVigencia ?? 'Em aberto'} />
             <div className="mt-3">

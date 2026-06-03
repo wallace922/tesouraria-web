@@ -9,6 +9,44 @@ import { getPaymentEmpenhoByMesAno } from '../../services/api';
 import type { PaymentNoteVinculacaoDto } from '../../types';
 import { formatCurrency, formatDate, formatCNPJ } from '../../lib/utils';
 
+// ── DescriptionCell ───────────────────────────────────────────────────────────
+
+function DescriptionCell({ text, className = '' }: { text: string; className?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > 60;
+
+  if (!isLong) {
+    return <span className={className} title={text}>{text}</span>;
+  }
+
+  return (
+    <span className={className}>
+      {expanded ? (
+        <>
+          <span className="break-words whitespace-pre-wrap">{text}</span>
+          {' '}
+          <button
+            onClick={() => setExpanded(false)}
+            className="text-amber-500/70 hover:text-amber-400 text-[10px] font-bold ml-1 focus:outline-none"
+          >
+            ▲ menos
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="truncate block max-w-[200px]" title={text}>{text}</span>
+          <button
+            onClick={() => setExpanded(true)}
+            className="text-amber-500/70 hover:text-amber-400 text-[10px] font-bold focus:outline-none"
+          >
+            ▼ mais
+          </button>
+        </>
+      )}
+    </span>
+  );
+}
+
 // ── Constantes ────────────────────────────────────────────────────────────────
 
 const MONTH_OPTIONS = [
@@ -29,7 +67,7 @@ const MONTH_OPTIONS = [
 const PAGE_SIZE = 20;
 
 // Número de colunas da tabela principal (usado em colSpan)
-const COL_COUNT = 10;
+const COL_COUNT = 9;
 
 // ── Helpers visuais ───────────────────────────────────────────────────────────
 
@@ -75,10 +113,18 @@ function groupByCodigoReceita(results: PaymentNoteVinculacaoDto[]): Group[] {
         subtotalImpostos: 0,
       });
     }
-    const group = map.get(key)!;
-    group.items.push(item);
-    group.subtotalValor += item.value;
-    group.subtotalImpostos += (item.tax?.calculatedItems ?? []).reduce((s, i) => s + i.amount, 0);
+    map.get(key)!.items.push(item);
+  }
+
+  // Subtotais por NP única dentro de cada grupo (evita dupla contagem)
+  for (const group of map.values()) {
+    const seen = new Set<number>();
+    for (const item of group.items) {
+      if (seen.has(item.numeroNp)) continue;
+      seen.add(item.numeroNp);
+      group.subtotalValor += item.value;
+      group.subtotalImpostos += (item.tax?.calculatedItems ?? []).reduce((s, i) => s + i.amount, 0);
+    }
   }
 
   return Array.from(map.values());
@@ -99,11 +145,7 @@ export default function BuscaDarf() {
   const [searched, setSearched]           = useState(false);
   const [pageInput, setPageInput]         = useState('');
 
-  // Accordion por ID de NP
-  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
-  function toggleExpand(id: number) {
-    setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
-  }
+
 
   // ── Busca ─────────────────────────────────────────────────────────────────
 
@@ -120,7 +162,6 @@ export default function BuscaDarf() {
     }
     setLoading(true);
     setError(null);
-    setExpanded({});
     const result = await getPaymentEmpenhoByMesAno(mesNum, anoNum, page, PAGE_SIZE);
     if (result.data) {
       const d = result.data as any;
@@ -147,10 +188,23 @@ export default function BuscaDarf() {
 
   // ── Totais globais da página ──────────────────────────────────────────────
 
-  const totalVinculo = results.reduce((s, r) => s + r.value, 0);
-  const totalImpostos = results.reduce((s, r) => {
-    return s + (r.tax?.calculatedItems ?? []).reduce((si, i) => si + i.amount, 0);
-  }, 0);
+  // Totais por NP única (evita dupla contagem de NPs com múltiplos PFs)
+  const totalVinculo = (() => {
+    const seen = new Set<number>();
+    return results.reduce((s, r) => {
+      if (seen.has(r.numeroNp)) return s;
+      seen.add(r.numeroNp);
+      return s + r.value;
+    }, 0);
+  })();
+  const totalImpostos = (() => {
+    const seen = new Set<number>();
+    return results.reduce((s, r) => {
+      if (seen.has(r.numeroNp)) return s;
+      seen.add(r.numeroNp);
+      return s + (r.tax?.calculatedItems ?? []).reduce((si, i) => si + i.amount, 0);
+    }, 0);
+  })();
   const mesLabel = MONTH_OPTIONS.find(m => m.value === mes)?.label ?? '';
 
   // Agrupamento calculado derivado dos resultados
@@ -252,7 +306,6 @@ export default function BuscaDarf() {
                 <table className="w-full text-xs divide-y divide-white/5 min-w-[860px]">
                   <thead>
                     <tr className="text-[10px] uppercase tracking-widest text-stone-500 border-b border-white/10 bg-stone-900/30 sticky top-0">
-                      <th className="px-2 py-2 text-center w-8"></th>{/* toggle */}
                       <th className="px-3 py-2 text-left">Nº NP</th>
                       <th className="px-3 py-2 text-left">Data Liq.</th>
                       <th className="px-3 py-2 text-left">Empresa</th>
@@ -286,9 +339,10 @@ export default function BuscaDarf() {
 
                               {/* Descrição da regra */}
                               {group.description && (
-                                <span className="text-gray-300 text-xs font-medium italic truncate max-w-xs" title={group.description}>
-                                  {group.description}
-                                </span>
+                                <DescriptionCell
+                                  text={group.description}
+                                  className="text-gray-300 text-xs font-medium italic"
+                                />
                               )}
 
                               {/* Subtotais do grupo */}
@@ -313,105 +367,103 @@ export default function BuscaDarf() {
                         </tr>
 
                         {/* ── Linhas do grupo ──────────────────────────────────── */}
-                        {group.items.map((item) => {
-                          const isOpen   = expanded[item.id] ?? false;
-                          const hasItems = (item.tax?.calculatedItems?.length ?? 0) > 0;
+                        {(() => {
+                          const seenNps = new Set<number>();
+                          return group.items.map((item) => {
+                            const isFirstOccurrence = !seenNps.has(item.numeroNp);
+                            seenNps.add(item.numeroNp);
+                            const hasItems = (item.tax?.calculatedItems?.length ?? 0) > 0;
 
-                          return (
-                            <>
-                              <tr
-                                key={`row-${item.id}`}
-                                className="border-b border-stone-800/80 hover:bg-stone-800/30 transition-colors"
-                              >
-                                {/* Expand toggle */}
-                                <td className="px-2 py-2.5 text-center">
-                                  {hasItems ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleExpand(item.id)}
-                                      title={isOpen ? 'Recolher impostos' : 'Ver impostos calculados'}
-                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${isOpen ? 'text-amber-400 bg-amber-500/20' : 'text-stone-500 hover:text-stone-300'}`}
-                                    >
-                                      {isOpen ? '▲' : '▼'}
-                                    </button>
-                                  ) : (
-                                    <span className="text-stone-700 text-[10px]">—</span>
-                                  )}
-                                </td>
+                            return (
+                              <>
+                                <tr
+                                  key={`row-${item.id}`}
+                                  className="border-b border-stone-800/80 hover:bg-stone-800/30 transition-colors"
+                                >
+                                  <td className="px-3 py-2.5">
+                                    <span className="text-amber-400 font-bold">{item.numeroNp}</span>
+                                    {!isFirstOccurrence && (
+                                      <span className="block text-[10px] text-stone-600 italic">+ PF</span>
+                                    )}
+                                  </td>
 
-                                <td className="px-3 py-2.5">
-                                  <span className="text-amber-400 font-bold">{item.numeroNp}</span>
-                                </td>
+                                  <td className="px-3 py-2.5 text-gray-300 whitespace-nowrap">
+                                    {formatDate(item.dataLiquidacao)}
+                                  </td>
 
-                                <td className="px-3 py-2.5 text-gray-300 whitespace-nowrap">
-                                  {formatDate(item.dataLiquidacao)}
-                                </td>
-
-                                <td className="px-3 py-2.5">
-                                  <span className="block text-gray-300 truncate max-w-[160px]" title={item.empresa.nome}>
-                                    {item.empresa.nome}
-                                  </span>
-                                  <span className="text-[10px] text-stone-500 font-mono">
-                                    {formatCNPJ(item.empresa.cnpj)}
-                                  </span>
-                                </td>
-
-                                <td className="px-3 py-2.5 text-gray-400">{item.docOrigin}</td>
-
-                                <td className="px-3 py-2.5 text-right">
-                                  <span className="text-amber-300 font-bold">{formatCurrency(item.value)}</span>
-                                </td>
-
-                                <td className="px-3 py-2.5 text-right">
-                                  <span className="text-amber-400 font-bold">{item.vinculation}</span>
-                                </td>
-
-                                <td className="px-3 py-2.5 text-center">
-                                  <StatusBadge status={item.status} />
-                                </td>
-
-                                <td className="px-3 py-2.5 text-center">
-                                  {item.tax?.codEfd != null ? (
-                                    <span className="text-gray-300 font-mono">{item.tax.codEfd}</span>
-                                  ) : <span className="text-stone-600">—</span>}
-                                </td>
-
-                                {/* Descrição da regra */}
-                                <td className="px-3 py-2.5 text-gray-400 max-w-[220px]">
-                                  {item.tax?.taxRuleDescription ? (
-                                    <span
-                                      className="block truncate text-gray-300 text-[11px]"
-                                      title={item.tax.taxRuleDescription}
-                                    >
-                                      {item.tax.taxRuleDescription}
+                                  <td className="px-3 py-2.5">
+                                    <span className="block text-gray-300 truncate max-w-[160px]" title={item.empresa.nome}>
+                                      {item.empresa.nome}
                                     </span>
-                                  ) : (
-                                    <span className="text-stone-600">—</span>
-                                  )}
-                                </td>
-                              </tr>
+                                    <span className="text-[10px] text-stone-500 font-mono">
+                                      {formatCNPJ(item.empresa.cnpj)}
+                                    </span>
+                                  </td>
 
-                              {/* Linha accordion de impostos calculados */}
-                              {isOpen && hasItems && (
-                                <tr key={`tax-${item.id}`} className="bg-stone-900/50 border-b border-stone-700">
-                                  <td colSpan={COL_COUNT} className="px-8 py-3">
-                                    <div className="max-w-md">
-                                      <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold mb-2">
-                                        <span className="text-amber-500 mr-1">■</span>
-                                        Impostos Calculados — NP {item.numeroNp}
-                                      </p>
-                                      <TaxItemsDisplay
-                                        items={item.tax!.calculatedItems!}
-                                        taxStatus={item.tax!.taxStatus}
-                                        compact
+                                  <td className="px-3 py-2.5 text-gray-400">{item.docOrigin}</td>
+
+                                  <td className="px-3 py-2.5 text-right">
+                                    <span className="text-amber-300 font-bold">{formatCurrency(item.value)}</span>
+                                  </td>
+
+                                  <td className="px-3 py-2.5 text-right">
+                                    <span className="text-amber-400 font-bold">{item.vinculation}</span>
+                                  </td>
+
+                                  <td className="px-3 py-2.5 text-center">
+                                    <StatusBadge status={item.status} />
+                                  </td>
+
+                                  <td className="px-3 py-2.5 text-center">
+                                    {item.tax?.codEfd != null ? (
+                                      <span className="text-gray-300 font-mono">{item.tax.codEfd}</span>
+                                    ) : <span className="text-stone-600">—</span>}
+                                  </td>
+
+                                  {/* Descrição da regra */}
+                                  <td className="px-3 py-2.5 text-gray-400 max-w-[220px]">
+                                    {item.tax?.taxRuleDescription ? (
+                                      <DescriptionCell
+                                        text={item.tax.taxRuleDescription}
+                                        className="text-gray-300 text-[11px]"
                                       />
-                                    </div>
+                                    ) : (
+                                      <span className="text-stone-600">—</span>
+                                    )}
                                   </td>
                                 </tr>
-                              )}
-                            </>
-                          );
-                        })}
+
+                                {/* Impostos calculados — sempre visíveis, apenas na 1ª ocorrência da NP */}
+                                {hasItems && isFirstOccurrence && (
+                                  <tr key={`tax-${item.id}`} className="bg-stone-900/50 border-b border-stone-700">
+                                    <td colSpan={COL_COUNT} className="px-8 py-3">
+                                      <div className="max-w-lg">
+                                        <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold mb-2">
+                                          <span className="text-amber-500 mr-1">■</span>
+                                          Impostos Calculados — NP {item.numeroNp}
+                                        </p>
+                                        <TaxItemsDisplay
+                                          items={item.tax!.calculatedItems!}
+                                          taxStatus={item.tax!.taxStatus}
+                                          compact
+                                        />
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                                {hasItems && !isFirstOccurrence && (
+                                  <tr key={`tax-dup-${item.id}`} className="bg-stone-900/30 border-b border-stone-800">
+                                    <td colSpan={COL_COUNT} className="px-8 py-1.5">
+                                      <span className="text-[10px] text-stone-600 italic">
+                                        ⚠ Impostos já contabilizados na primeira ocorrência da NP {item.numeroNp} (vinculada a múltiplos PF)
+                                      </span>
+                                    </td>
+                                  </tr>
+                                )}
+                              </>
+                            );
+                          });
+                        })()}
 
                         {/* ── Rodapé do grupo com subtotais ─────────────────── */}
                         <tr key={`group-footer-${gIdx}`} className="bg-stone-900/60 border-b-2 border-amber-700/20">

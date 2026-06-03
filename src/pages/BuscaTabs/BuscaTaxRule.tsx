@@ -14,6 +14,45 @@ import type { TaxRuleDto, TaxRuleItemDto } from '../../types';
 import { SectionTitle, TableContainer } from './Shared';
 import { toInputDate } from '../../lib/utils';
 
+// ── DescriptionCell ───────────────────────────────────────────────────────────
+
+function DescriptionCell({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > 60;
+
+  if (!isLong) {
+    return <span title={text}>{text}</span>;
+  }
+
+  return (
+    <span>
+      {expanded ? (
+        <>
+          <span className="break-words whitespace-pre-wrap">{text}</span>
+          {' '}
+          <button
+            onClick={() => setExpanded(false)}
+            className="text-amber-500/70 hover:text-amber-400 text-[10px] font-bold ml-1 focus:outline-none"
+            title="Recolher"
+          >
+            ▲ menos
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="truncate block max-w-[200px]" title={text}>{text}</span>
+          <button
+            onClick={() => setExpanded(true)}
+            className="text-amber-500/70 hover:text-amber-400 text-[10px] font-bold focus:outline-none"
+            title="Ver descrição completa"
+          >
+            ▼ mais
+          </button>
+        </>
+      )}
+    </span>
+  );
+}
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
 
@@ -363,14 +402,18 @@ export default function BuscaTaxRule() {
           {/* Campos do formulário */}
           {mode !== 'end-validity' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
-              <div className="md:col-span-2">
-                <Input
-                  label="Descrição"
+              <div className="md:col-span-2 flex flex-col gap-1">
+                <label className="text-xs font-semibold uppercase tracking-widest text-stone-400">
+                  Descrição <span className="text-amber-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  maxLength={300}
                   value={description}
                   onChange={e => setDescription(e.target.value)}
-                  maxLength={300}
+                  className="bg-black/60 border border-white/20 text-gray-200 text-sm rounded-md px-3 py-2 placeholder-stone-500 focus:outline-none focus:ring-2 focus:border-amber-500 focus:ring-amber-500/30 transition-all duration-150 resize-none"
                 />
-                <p className="text-[10px] text-stone-600 mt-1">Descrição: {description.length}/300 caracteres</p>
+                <p className="text-[10px] text-stone-600">Descrição: {description.length}/300 caracteres</p>
               </div>
             </div>
           )}
@@ -512,7 +555,9 @@ export default function BuscaTaxRule() {
                           >
                             <td className="py-2 px-3 text-amber-300 font-mono text-xs">{rule.id}</td>
                             <td className="py-2 px-3 text-amber-400 font-mono font-bold text-xs">{rule.codigoReceita}</td>
-                            <td className="py-2 px-3 text-gray-300 text-xs max-w-[200px] truncate">{rule.description}</td>
+                            <td className="py-2 px-3 text-gray-300 text-xs max-w-[220px]">
+                              <DescriptionCell text={rule.description} />
+                            </td>
                             <td className="py-2 px-3 text-gray-300 font-mono text-xs">{rule.dataInicioVigencia}</td>
                             <td className="py-2 px-3 font-mono text-xs">
                               {rule.dataFimVigencia
