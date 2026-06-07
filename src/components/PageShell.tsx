@@ -26,7 +26,7 @@ export default function PageShell({ children }: PageShellProps) {
 
   const linkClasses = (to: string) =>
     [
-      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold uppercase tracking-widest transition-all duration-150 border',
+      'inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-bold uppercase tracking-widest transition-all duration-150 border',
       isActive(to)
         ? 'bg-amber-500/20 border-amber-500/60 text-amber-400'
         : 'bg-transparent border-white/20 text-stone-400 hover:border-white/40 hover:text-stone-200',
@@ -43,10 +43,10 @@ export default function PageShell({ children }: PageShellProps) {
             <img src="/brasao.png" alt="Brasão Seção de Tesouraria" className="h-full aspect-square object-contain drop-shadow-md" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-amber-400 font-black tracking-widest text-xs sm:text-sm uppercase truncate">
+            <h1 className="text-amber-400 font-black tracking-widest text-sm sm:text-base uppercase truncate">
               Gestão de Tesouraria
             </h1>
-            <p className="text-stone-500 text-[10px] tracking-widest uppercase truncate">
+            <p className="text-stone-500 text-xs tracking-widest uppercase truncate">
               Sistema de Controle Financeiro
             </p>
           </div>

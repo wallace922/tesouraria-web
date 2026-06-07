@@ -12,26 +12,9 @@ const STATUS_CONFIG: Record<TaxStatus, { label: string; className: string }> = {
 function TaxStatusBadge({ status }: { status: TaxStatus }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.PENDING;
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] uppercase tracking-wider font-bold ${cfg.className}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs uppercase tracking-wider font-bold ${cfg.className}`}>
       {cfg.label}
     </span>
-  );
-}
-
-// ── Exibição de um item calculado ─────────────────────────────────────────────
-
-function TaxItemRow({ item }: { item: TaxCalculatedItem }) {
-  const pct = (item.rate * 100).toFixed(4).replace(/\.?0+$/, '') + '%';
-  return (
-    <div className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0 text-sm">
-      <div className="flex items-center gap-3">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400 font-mono w-20">
-          {item.taxType}
-        </span>
-        <span className="text-stone-500 text-xs">{pct}</span>
-      </div>
-      <span className="text-gray-200 font-mono text-xs">{formatCurrency(item.amount)}</span>
-    </div>
   );
 }
 
@@ -46,12 +29,13 @@ interface TaxItemsDisplayProps {
 
 /**
  * Exibe a lista dinâmica de impostos calculados retornada pelo backend.
- * Funciona com qualquer número/tipo de itens — não há campos hardcoded.
+ * Layout em grid com colunas de largura fixa para alinhamento consistente
+ * independente da quantidade ou tamanho dos nomes dos impostos.
  */
 export default function TaxItemsDisplay({ items, taxStatus, compact = false }: TaxItemsDisplayProps) {
   if (!items || items.length === 0) {
     return (
-      <span className="text-stone-600 text-xs italic">Sem impostos calculados</span>
+      <span className="text-stone-600 text-sm italic">Sem impostos calculados</span>
     );
   }
 
@@ -61,21 +45,44 @@ export default function TaxItemsDisplay({ items, taxStatus, compact = false }: T
     <div className="space-y-1">
       {!compact && (
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">
+          <span className="text-xs uppercase tracking-widest text-stone-500 font-bold">
             Impostos
           </span>
           {taxStatus && <TaxStatusBadge status={taxStatus} />}
         </div>
       )}
 
-      <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-1">
-        {items.map((item, idx) => (
-          <TaxItemRow key={idx} item={item} />
-        ))}
-        {/* Total */}
-        <div className="flex items-center justify-between pt-2 mt-1 border-t border-white/10">
-          <span className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">Total Retido</span>
-          <span className="text-amber-400 font-bold font-mono text-sm">{formatCurrency(total)}</span>
+      <div className="rounded-lg border border-white/10 bg-black/30 overflow-hidden">
+        {/* Cabeçalho fixo das colunas */}
+        <div className="grid grid-cols-[6rem_5rem_1fr] gap-0 border-b border-white/10 px-3 py-1.5 bg-black/20">
+          <span className="text-xs uppercase tracking-widest text-stone-600 font-bold">Tipo</span>
+          <span className="text-xs uppercase tracking-widest text-stone-600 font-bold text-right">Alíq.</span>
+          <span className="text-xs uppercase tracking-widest text-stone-600 font-bold text-right">Valor</span>
+        </div>
+
+        {/* Linhas de cada imposto */}
+        {items.map((item, idx) => {
+          const pct = (item.rate * 100).toFixed(4).replace(/\.?0+$/, '') + '%';
+          return (
+            <div
+              key={idx}
+              className="grid grid-cols-[6rem_5rem_1fr] gap-0 px-3 py-1.5 border-b border-white/5 last:border-0"
+            >
+              <span className="text-xs font-bold uppercase tracking-widest text-amber-400 font-mono">
+                {item.taxType}
+              </span>
+              <span className="text-xs text-stone-400 text-right font-mono">{pct}</span>
+              <span className="text-sm text-gray-200 font-mono font-bold text-right">
+                {formatCurrency(item.amount)}
+              </span>
+            </div>
+          );
+        })}
+
+        {/* Linha de total */}
+        <div className="grid grid-cols-[6rem_5rem_1fr] gap-0 px-3 py-2 border-t border-white/10 bg-black/20">
+          <span className="col-span-2 text-xs uppercase tracking-widest text-stone-500 font-bold">Total Retido</span>
+          <span className="text-sm text-amber-400 font-bold font-mono text-right">{formatCurrency(total)}</span>
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@ import React from 'react';
 
 export function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold mb-4">
+    <p className="text-xs uppercase tracking-widest text-stone-500 font-bold mb-4">
       <span className="text-amber-500 mr-2">▶</span>{children}
     </p>
   );

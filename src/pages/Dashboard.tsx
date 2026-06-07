@@ -48,7 +48,7 @@ function StatusBadge({ status }: { status: 'CANCELADA' | 'PAGA' | 'A_PAGAR' }) {
     A_PAGAR: 'A Pagar',
   };
   return (
-    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${map[status]}`}>
+    <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-widest ${map[status]}`}>
       {label[status]}
     </span>
   );
@@ -297,7 +297,7 @@ export default function Dashboard() {
       {/* ── Quick Save Bar ─────────────────────────────────────────────────── */}
       <div className="mx-3 sm:mx-6 mt-6 p-4 glass-panel">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">
+          <p className="text-xs uppercase tracking-widest text-stone-500 font-bold">
             ▶ Cadastro Rápido de Vínculo
           </p>
           <Button
@@ -332,7 +332,7 @@ export default function Dashboard() {
       {/* ── Main Table ─────────────────────────────────────────────────────── */}
       <div className="px-3 sm:px-6 py-6">
         <div className="mb-4">
-          <h2 className="text-amber-400 font-bold uppercase tracking-widest text-xs">
+          <h2 className="text-amber-400 font-bold uppercase tracking-widest text-sm">
             ▶ Vínculos Registrados
           </h2>
         </div>
@@ -473,9 +473,9 @@ export default function Dashboard() {
 
               {/* Desktop: table view */}
               <div className="hidden lg:block w-full p-4">
-                <table className="w-full text-xs divide-y divide-white/5">
+                <table className="w-full text-sm divide-y divide-white/5">
                   <thead>
-                    <tr className="border-b border-white/10 text-[10px] uppercase tracking-widest text-stone-500 bg-stone-900/20">
+                    <tr className="border-b border-white/10 text-xs uppercase tracking-widest text-stone-500 bg-stone-900/20">
                       <th className="px-3 py-2 text-left whitespace-nowrap">Nº NP</th>
                       <th className="px-3 py-2 text-left whitespace-nowrap">Data Liq.</th>
                       <th className="px-3 py-2 text-left whitespace-nowrap">Empresa</th>
