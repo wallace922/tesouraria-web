@@ -76,7 +76,6 @@ export default function BuscaPaymentNote() {
   const handleSave = () => {
     if (!found) return;
     if (!cnpjValid) { setSaveError('Valide o CNPJ antes de salvar.'); return; }
-    if (taxTipo === 'NAO_OPTANTE' && !codEfd) { setSaveError('Informe o Cód. EFD para tributação Não Optante.'); return; }
     const payload: PaymentNoteDto = {
       ...found,
       numeroNp: parseInt(numeroNp, 10),
@@ -85,7 +84,7 @@ export default function BuscaPaymentNote() {
       value: parseFloat(value),
       status,
       empresa: { nome: empresaNome, cnpj: cnpj.replace(/\D/g, '') },
-      tax: { tipo: taxTipo, codEfd: taxTipo === 'NAO_OPTANTE' ? parseInt(codEfd, 10) : 0 },
+      tax: { tipo: taxTipo, codEfd: codEfd ? parseInt(codEfd, 10) : null },
     };
     handleSaveRequest(() => updatePaymentNote(payload), 'Payment Note atualizada!', () => handleGetAllRequest(getAllNp));
   };

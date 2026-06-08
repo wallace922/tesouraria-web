@@ -54,7 +54,7 @@ export interface TaxCalculatedItem {
 export interface TaxDto {
   id?: number;
   tipo: OptanteStatus;
-  codEfd: number;
+  codEfd: number | null;
   /** Código de agrupamento de receita — presente nos retornos do backend. */
   codigoReceita?: number;
   /**

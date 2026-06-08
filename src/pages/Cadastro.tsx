@@ -296,7 +296,6 @@ function FormPaymentNote() {
     setError(null); setSuccess(null);
     if (!numeroNp || !dataLiq || !docOrigin || !value) { setError('Preencha todos os campos obrigatórios.'); return; }
     if (!cnpjValid) { setError('Valide o CNPJ antes de salvar (campo deve estar com empresa encontrada).'); return; }
-    if (taxTipo === 'NAO_OPTANTE' && !codEfd) { setError('Informe o Cód. EFD para tributo Não Optante.'); return; }
     setLoading(true);
 
     const dto: PaymentNoteDto = {
@@ -308,7 +307,7 @@ function FormPaymentNote() {
       status,
       tax: {
         tipo: taxTipo,
-        codEfd: taxTipo === 'NAO_OPTANTE' ? parseInt(codEfd, 10) : 0,
+        codEfd: codEfd ? parseInt(codEfd, 10) : null,
       },
     };
 
