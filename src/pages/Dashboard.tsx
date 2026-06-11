@@ -180,8 +180,9 @@ export default function Dashboard() {
     setConfirmingMap((prev) => ({ ...prev, [index]: true }));
 
     // ── Derivar dataLiquidacao da NP ───────────────────────────────────────────
-    // Se o usuário não alterou a NP, mantemos a data original.
-    // Se alterou, precisamos buscar a NP para obter a dataLiquidacao correta.
+    // O backend só precisa de { numeroNp, dataLiquidacao } para identificar a NP.
+    // Se o usuário não alterou a NP, mantemos o valor original.
+    // Se alterou número ou ano, buscamos a NP para obter a dataLiquidacao correta.
     const originalNpYear = extractNpYear(originalRow.paymentNoteBasicDto.dataLiquidacao);
     const npAlterado =
       npNum !== originalRow.paymentNoteBasicDto.numeroNp ||

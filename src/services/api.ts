@@ -80,45 +80,42 @@ export async function savePaymentEmpenho(dto: PaymentNoteEmpenhoDto): Promise<Ap
 
 /**
  * PUT /API/PaymentEmpenho
- * Contrato esperado pelo backend:
- * {
- *   id, value,
- *   paymentNote: { numeroNp, dataLiquidacao },
- *   empenho:     { numero, ano },
- *   financialPlanning: { numero, data } | null
- * }
- * O backend usa apenas os identificadores dos sub-objetos para encontrar
- * as entidades existentes; não atualiza dados dentro delas.
+ * O Java PaymentNoteEmpenhoBasicDto usa os campos:
+ *   paymentNoteBasicDto  → { numeroNp, dataLiquidacao }
+ *   empenhoDto           → { numero, ano }
+ *   financialPlanningBasicDto → { numero, data } | null
+ *
+ * Atenção: os nomes devem bater com os campos do DTO Java (o mesmo que o GET retorna).
  */
 export async function updatePaymentEmpenho(
   id: number,
   payload: {
-    paymentNote: { numeroNp: number; dataLiquidacao: string };
-    empenho:     { numero: number; ano: number };
+    paymentNote:       { numeroNp: number; dataLiquidacao: string };
+    empenho:           { numero: number; ano: number };
     financialPlanning: { numero: number; data: string } | null;
     value: number;
   }
-): Promise<ApiResult<PaymentNoteEmpenhoDto>> {
+): Promise<ApiResult<PaymentNoteEmpenhoBasicDto>> {
   try {
     const body = {
       id,
-      paymentNote: {
-        numeroNp: payload.paymentNote.numeroNp,
+      paymentNoteBasicDto: {
+        numeroNp:       payload.paymentNote.numeroNp,
         dataLiquidacao: formatDate(payload.paymentNote.dataLiquidacao),
       },
-      empenho: {
+      empenhoDto: {
         numero: payload.empenho.numero,
-        ano: payload.empenho.ano,
+        ano:    payload.empenho.ano,
       },
-      financialPlanning: payload.financialPlanning
+      financialPlanningBasicDto: payload.financialPlanning
         ? {
             numero: payload.financialPlanning.numero,
-            data: formatDate(payload.financialPlanning.data),
+            data:   formatDate(payload.financialPlanning.data),
           }
         : null,
       value: payload.value,
     };
-    const res = await apiInstance.put<PaymentNoteEmpenhoDto>('/PaymentEmpenho', body);
+    const res = await apiInstance.put<PaymentNoteEmpenhoBasicDto>('/PaymentEmpenho', body);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
