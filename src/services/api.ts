@@ -178,7 +178,12 @@ export async function getAllNp(
 
 export async function savePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<PaymentNoteDto>> {
   try {
-    // Envia apenas tipo e codEfd no tax — o backend calcula os itens
+    const taxPayload = dto.tax
+      ? dto.tax.manualAdjustment
+        ? { tipo: dto.tax.tipo, codEfd: dto.tax.codEfd, manualAdjustment: true, calculatedItems: dto.tax.calculatedItems ?? [] }
+        : { tipo: dto.tax.tipo, codEfd: dto.tax.codEfd }
+      : null;
+
     const payload = {
       numeroNp: dto.numeroNp,
       dataLiquidacao: formatDate(dto.dataLiquidacao),
@@ -186,7 +191,7 @@ export async function savePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<Pa
       docOrigin: dto.docOrigin,
       value: dto.value,
       status: dto.status,
-      tax: dto.tax ? { tipo: dto.tax.tipo, codEfd: dto.tax.codEfd } : null,
+      tax: taxPayload,
     };
     const res = await apiInstance.post<PaymentNoteDto>('/Np', payload);
     return { data: res.data, status: res.status, errorMessage: null };
@@ -195,7 +200,12 @@ export async function savePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<Pa
 
 export async function updatePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<PaymentNoteDto>> {
   try {
-    // Envia apenas tipo e codEfd no tax — o backend recalcula os itens
+    const taxPayload = dto.tax
+      ? dto.tax.manualAdjustment
+        ? { tipo: dto.tax.tipo, codEfd: dto.tax.codEfd, manualAdjustment: true, calculatedItems: dto.tax.calculatedItems ?? [] }
+        : { tipo: dto.tax.tipo, codEfd: dto.tax.codEfd }
+      : null;
+
     const payload = {
       numeroNp: dto.numeroNp,
       dataLiquidacao: formatDate(dto.dataLiquidacao),
@@ -203,7 +213,7 @@ export async function updatePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<
       docOrigin: dto.docOrigin,
       value: dto.value,
       status: dto.status,
-      tax: dto.tax ? { tipo: dto.tax.tipo, codEfd: dto.tax.codEfd } : null,
+      tax: taxPayload,
     };
     const res = await apiInstance.put<PaymentNoteDto>('/Np', payload);
     return { data: res.data, status: res.status, errorMessage: null };

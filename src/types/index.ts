@@ -48,8 +48,12 @@ export interface TaxCalculatedItem {
 /**
  * TaxDto — estrutura da tributação de uma PaymentNote.
  *
- * No POST/PUT apenas `tipo` e `codEfd` são enviados.
- * `taxStatus` e `calculatedItems` são retornados pelo backend.
+ * No POST/PUT padrão, apenas `tipo` e `codEfd` são enviados e o backend
+ * calcula os impostos automaticamente.
+ *
+ * Modo de ajuste manual: quando `manualAdjustment: true` é enviado, o
+ * backend ignora o cálculo automático e persiste os valores de `calculatedItems`
+ * exatamente como enviados pelo frontend.
  */
 export interface TaxDto {
   id?: number;
@@ -65,6 +69,12 @@ export interface TaxDto {
   taxRuleDescription?: string | null;
   taxStatus?: TaxStatus;
   calculatedItems?: TaxCalculatedItem[];
+  /**
+   * Flag de ajuste manual de impostos.
+   * Quando true, o backend salva os `calculatedItems` enviados sem recalcular.
+   * Usado para corrigir divergências de arredondamento de 1 centavo.
+   */
+  manualAdjustment?: boolean;
 }
 
 // ── Payment Note ──────────────────────────────────────────────────────────────

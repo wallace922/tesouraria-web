@@ -5,7 +5,8 @@ import Button from '../components/Button';
 import Input from '../components/Input';
 import Select from '../components/Select';
 import Alert from '../components/Alert';
-import TaxItemsDisplay from '../components/TaxItemsDisplay';
+import TaxAdjustmentPanel from '../components/TaxAdjustmentPanel';
+import ConfirmSaveModal from '../components/ConfirmSaveModal';
 import TaxRuleItemEditor from '../components/TaxRuleItemEditor';
 import QuickFormEmpresa from './CadastroTabs/QuickFormEmpresa';
 import QuickFormEmpenho from './CadastroTabs/QuickFormEmpenho';
@@ -287,6 +288,15 @@ function FormPaymentNote() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<PaymentNoteDto | null>(null);
+  // Ajuste manual de impostos (apenas para modo NAO_OPTANTE c/ calculatedItems)
+  const [manualItems, setManualItems] = useState<import('../types').TaxCalculatedItem[]>([]);
+  const [isManualAdjustment, setIsManualAdjustment] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  function handleTaxAdjustChange(items: import('../types').TaxCalculatedItem[], manual: boolean) {
+    setManualItems(items);
+    setIsManualAdjustment(manual);
+  }
 
   function handleCnpj(v: string) { setCnpj(applyCnpjMask(v)); setCnpjValid(null); setCnpjError(null); setEmpresaNome(''); }
 
@@ -300,7 +310,7 @@ function FormPaymentNote() {
     setCnpjLoading(false);
   }
 
-  async function handleSave() {
+  function openConfirm() {
     setError(null); setSuccess(null);
     if (!numeroNp || !dataLiq || !docOrigin || !value) { setError('Preencha todos os campos obrigatórios.'); return; }
     const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
@@ -308,6 +318,13 @@ function FormPaymentNote() {
     if (!cnpjValid) { setError('Valide o CNPJ antes de salvar (campo deve estar com empresa encontrada).'); return; }
     const parsedValue = parseBRCurrency(value);
     if (isNaN(parsedValue)) { setError('Valor inválido. Use o formato numérico (ex: 1.500,30 ou 1500.30).'); return; }
+    setConfirmOpen(true);
+  }
+
+  async function handleSaveConfirmed() {
+    setConfirmOpen(false);
+    setError(null); setSuccess(null);
+    const parsedValue = parseBRCurrency(value);
     setLoading(true);
 
     const dto: PaymentNoteDto = {
@@ -320,6 +337,9 @@ function FormPaymentNote() {
       tax: {
         tipo: taxTipo,
         codEfd: codEfd ? parseInt(codEfd, 10) : null,
+        ...(isManualAdjustment && manualItems.length > 0
+          ? { manualAdjustment: true, calculatedItems: manualItems }
+          : {}),
       },
     };
 
@@ -329,6 +349,7 @@ function FormPaymentNote() {
       setNumeroNp(''); setDataLiq(''); setDocOrigin(''); setValue('');
       setCnpj(''); setCnpjValid(null); setEmpresaNome('');
       setTaxTipo('OPTANTE'); setCodEfd(''); setStatus('A_PAGAR');
+      setManualItems([]); setIsManualAdjustment(false);
     } else { setError(result.errorMessage ?? 'Erro ao salvar Payment Note.'); }
     setLoading(false);
   }
@@ -410,12 +431,21 @@ function FormPaymentNote() {
                   </p>
                 </div>
               )}
+              {/* Painel de ajuste manual — aparece apenas quando o usuário ativa manualmente */}
+              {manualItems.length > 0 && (
+                <div className="animate-fadeIn">
+                  <TaxAdjustmentPanel
+                    items={manualItems}
+                    onChange={handleTaxAdjustChange}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
           <div className="space-y-3">
             {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
-            <Button variant="primary" loading={loading} disabled={cnpjValid === false || loading} onClick={handleSave}>
+            <Button variant="primary" loading={loading} disabled={cnpjValid === false || loading} onClick={openConfirm}>
               Cadastrar Payment Note
             </Button>
           </div>
@@ -437,7 +467,11 @@ function FormPaymentNote() {
                 )}
                 {d.tax?.calculatedItems && d.tax.calculatedItems.length > 0 && (
                   <div className="mt-4">
-                    <TaxItemsDisplay items={d.tax.calculatedItems} taxStatus={d.tax.taxStatus} />
+                    <TaxAdjustmentPanel
+                      items={d.tax.calculatedItems}
+                      onChange={handleTaxAdjustChange}
+                      compact
+                    />
                   </div>
                 )}
               </>
@@ -464,6 +498,14 @@ function FormPaymentNote() {
 
       {/* ── Parte Inferior: Vínculo NP-Empenho ───────────────────────── */}
       <VinculoBlock />
+      <ConfirmSaveModal
+        open={confirmOpen}
+        title="Confirmar Cadastro de Payment Note"
+        warning="Atenção: Ao salvar, o backend recalculará os impostos automaticamente a partir do Código EFD, a menos que o Ajuste Manual esteja ativado."
+        description="Tem certeza de que deseja cadastrar esta Nota de Pagamento?"
+        onConfirm={handleSaveConfirmed}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 }

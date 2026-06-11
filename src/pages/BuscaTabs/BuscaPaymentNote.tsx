@@ -5,7 +5,8 @@ import Alert from '../../components/Alert';
 import Select from '../../components/Select';
 import EditIconButton from '../../components/EditIconButton';
 import PaginationControls from '../../components/PaginationControls';
-import TaxItemsDisplay from '../../components/TaxItemsDisplay';
+import TaxAdjustmentPanel from '../../components/TaxAdjustmentPanel';
+import ConfirmSaveModal from '../../components/ConfirmSaveModal';
 import { findNpByNumeroEAno, getAllNp, updatePaymentNote, findEmpresaByCnpj } from '../../services/api';
 import type { PaymentNoteDto, OptanteStatus, TaxStatus } from '../../types';
 import { toInputDate, formatCurrency, formatDate } from '../../lib/utils';
@@ -39,6 +40,16 @@ export default function BuscaPaymentNote() {
   const [empresaNome, setEmpresaNome] = useState('');
   const [taxTipo, setTaxTipo] = useState<OptanteStatus>('OPTANTE');
   const [codEfd, setCodEfd] = useState('');
+  // Ajuste manual de impostos
+  const [manualItems, setManualItems] = useState<import('../../types').TaxCalculatedItem[]>([]);
+  const [isManualAdjustment, setIsManualAdjustment] = useState(false);
+  // Modal de confirmação
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  function handleTaxAdjustChange(items: import('../../types').TaxCalculatedItem[], manual: boolean) {
+    setManualItems(items);
+    setIsManualAdjustment(manual);
+  }
 
   const {
     loading: searching, error, setError,
@@ -70,12 +81,24 @@ export default function BuscaPaymentNote() {
     setCnpjError(null);
     setTaxTipo(np.tax?.tipo ?? 'OPTANTE');
     setCodEfd(np.tax?.codEfd ? String(np.tax.codEfd) : '');
+    // Pre-popula o painel de ajuste com os itens existentes (se houver)
+    const items = np.tax?.calculatedItems ?? [];
+    setManualItems(items.map(i => ({ ...i })));
+    setIsManualAdjustment(false); // sempre inicia no modo automático
     setEditing(true);
   };
 
-  const handleSave = () => {
+  // Abre o modal de confirmação antes de salvar
+  const openConfirm = () => {
     if (!found) return;
     if (!cnpjValid) { setSaveError('Valide o CNPJ antes de salvar.'); return; }
+    setConfirmOpen(true);
+  };
+
+  // Executado apenas após o usuário confirmar no modal
+  const handleSaveConfirmed = () => {
+    setConfirmOpen(false);
+    if (!found) return;
     const payload: PaymentNoteDto = {
       ...found,
       numeroNp: parseInt(numeroNp, 10),
@@ -84,7 +107,13 @@ export default function BuscaPaymentNote() {
       value: parseFloat(value),
       status,
       empresa: { nome: empresaNome, cnpj: cnpj.replace(/\D/g, '') },
-      tax: { tipo: taxTipo, codEfd: codEfd ? parseInt(codEfd, 10) : null },
+      tax: {
+        tipo: taxTipo,
+        codEfd: codEfd ? parseInt(codEfd, 10) : null,
+        ...(isManualAdjustment && manualItems.length > 0
+          ? { manualAdjustment: true, calculatedItems: manualItems }
+          : {}),
+      },
     };
     handleSaveRequest(() => updatePaymentNote(payload), 'Payment Note atualizada!', () => handleGetAllRequest(getAllNp));
   };
@@ -180,16 +209,18 @@ export default function BuscaPaymentNote() {
                 </div>
               )}
               {found.tax?.calculatedItems && found.tax.calculatedItems.length > 0 && (
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold mb-2">Impostos calculados (atual)</p>
-                  <TaxItemsDisplay items={found.tax.calculatedItems} taxStatus={found.tax.taxStatus} compact />
+                <div className="animate-fadeIn">
+                  <TaxAdjustmentPanel
+                    items={found.tax.calculatedItems}
+                    onChange={handleTaxAdjustChange}
+                  />
                 </div>
               )}
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4">
-            <Button onClick={handleSave} loading={saving} disabled={cnpjValid === false || cnpjLoading}>Salvar Alterações</Button>
+            <Button onClick={openConfirm} loading={saving} disabled={cnpjValid === false || cnpjLoading}>Salvar Alterações</Button>
             <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
           </div>
           {saveError && <Alert variant="error" message={saveError} onClose={() => setSaveError(null)} />}
@@ -251,6 +282,15 @@ export default function BuscaPaymentNote() {
             onGoToPage={(page) => handleGoToPage(page, getAllNp)} />
         </>
       )}
+
+      <ConfirmSaveModal
+        open={confirmOpen}
+        title="Confirmar Alterações na Payment Note"
+        warning="Atenção: Ao salvar, o backend recalculará os impostos automaticamente a partir do Código EFD, a menos que o Ajuste Manual esteja ativado."
+        description="Deseja mesmo atualizar as informações desta Nota de Pagamento?"
+        onConfirm={handleSaveConfirmed}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 }
