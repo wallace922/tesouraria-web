@@ -10,7 +10,7 @@ import {
   findEmpenhoByNumeroEAno,
   findFinancialPlanningByNumber,
 } from '../services/api';
-import type { PaymentNoteEmpenhoDto, PaymentNoteDto, EmpenhoDto } from '../types';
+import type { PaymentNoteDto, EmpenhoDto } from '../types';
 import { formatCurrency, formatCNPJ, formatDate } from '../lib/utils';
 
 const PAGE_SIZE = 20;
@@ -176,15 +176,21 @@ export default function PFNRDashboard() {
       return;
     }
 
-    const dto: PaymentNoteEmpenhoDto = {
-      id,
-      empenhoDto: empRes.data!,
-      paymentNoteBasicDto: npRes.data!,
-      financialPlanningBasicDto: fpRes.data!,
+    const updateRes = await updatePaymentEmpenho(id, {
+      paymentNote: {
+        numeroNp: npRes.data!.numeroNp,
+        dataLiquidacao: npRes.data!.dataLiquidacao,
+      },
+      empenho: {
+        numero: empRes.data!.numero,
+        ano: empRes.data!.ano,
+      },
+      financialPlanning: {
+        numero: fpRes.data!.numero,
+        data: fpRes.data!.data,
+      },
       value: row.value,
-    };
-
-    const updateRes = await updatePaymentEmpenho(dto);
+    });
     if (updateRes.data) {
       cancelEdit(id);
       setSuccessMsg(`Vínculo #${id} associado ao PF nº ${fpNum}/${fpAno} com sucesso!`);

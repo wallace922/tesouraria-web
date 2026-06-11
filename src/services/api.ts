@@ -78,24 +78,47 @@ export async function savePaymentEmpenho(dto: PaymentNoteEmpenhoDto): Promise<Ap
   } catch (e) { return handleError(e); }
 }
 
-export async function updatePaymentEmpenho(dto: PaymentNoteEmpenhoDto): Promise<ApiResult<PaymentNoteEmpenhoDto>> {
+/**
+ * PUT /API/PaymentEmpenho
+ * Contrato esperado pelo backend:
+ * {
+ *   id, value,
+ *   paymentNote: { numeroNp, dataLiquidacao },
+ *   empenho:     { numero, ano },
+ *   financialPlanning: { numero, data } | null
+ * }
+ * O backend usa apenas os identificadores dos sub-objetos para encontrar
+ * as entidades existentes; não atualiza dados dentro delas.
+ */
+export async function updatePaymentEmpenho(
+  id: number,
+  payload: {
+    paymentNote: { numeroNp: number; dataLiquidacao: string };
+    empenho:     { numero: number; ano: number };
+    financialPlanning: { numero: number; data: string } | null;
+    value: number;
+  }
+): Promise<ApiResult<PaymentNoteEmpenhoDto>> {
   try {
-    const payload = {
-      id: dto.id,
-      empenhoDto: dto.empenhoDto,
-      paymentNoteBasicDto: {
-        ...dto.paymentNoteBasicDto,
-        dataLiquidacao: formatDate(dto.paymentNoteBasicDto.dataLiquidacao),
+    const body = {
+      id,
+      paymentNote: {
+        numeroNp: payload.paymentNote.numeroNp,
+        dataLiquidacao: formatDate(payload.paymentNote.dataLiquidacao),
       },
-      financialPlanningBasicDto: dto.financialPlanningBasicDto
+      empenho: {
+        numero: payload.empenho.numero,
+        ano: payload.empenho.ano,
+      },
+      financialPlanning: payload.financialPlanning
         ? {
-          ...dto.financialPlanningBasicDto,
-          data: formatDate(dto.financialPlanningBasicDto.data),
-        }
+            numero: payload.financialPlanning.numero,
+            data: formatDate(payload.financialPlanning.data),
+          }
         : null,
-      value: dto.value,
+      value: payload.value,
     };
-    const res = await apiInstance.put<PaymentNoteEmpenhoDto>('/PaymentEmpenho', payload);
+    const res = await apiInstance.put<PaymentNoteEmpenhoDto>('/PaymentEmpenho', body);
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }

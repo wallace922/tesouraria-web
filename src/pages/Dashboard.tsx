@@ -6,10 +6,8 @@ import Input from '../components/Input';
 import Alert from '../components/Alert';
 import {
   getAllPaymentEmpenhos,
-  savePaymentEmpenho,
   updatePaymentEmpenho,
   findNpByNumeroEAno,
-  findEmpenhoByNumeroEAno,
   findFinancialPlanningByNumber,
 } from '../services/api';
 import type { PaymentNoteEmpenhoDto } from '../types';
@@ -80,16 +78,6 @@ export default function Dashboard() {
   const [pageSize] = useState(50);
   const [pageInput, setPageInput] = useState('');
 
-  // Quick-save form
-  const [quickNp, setQuickNp] = useState('');
-  const [quickNpAno, setQuickNpAno] = useState('');
-  const [quickEmpenho, setQuickEmpenho] = useState('');
-  const [quickAno, setQuickAno] = useState('');
-  const [quickVinculo, setQuickVinculo] = useState('');
-  const [savingQuick, setSavingQuick] = useState(false);
-  const [quickError, setQuickError] = useState<string | null>(null);
-  const [quickSuccess, setQuickSuccess] = useState<string | null>(null);
-
   // Inline editing
   const [editingMap, setEditingMap] = useState<EditingMap>({});
   const [confirmingMap, setConfirmingMap] = useState<Record<number, boolean>>({});
@@ -127,59 +115,6 @@ export default function Dashboard() {
   };
 
   useEffect(() => { loadAll(0); }, []);
-
-  // ── Quick Save ─────────────────────────────────────────────────────────────
-
-  async function handleQuickSave() {
-    setQuickError(null);
-    setQuickSuccess(null);
-    const npNum = parseInt(quickNp, 10);
-    const empNum = parseInt(quickEmpenho, 10);
-    const empAno = parseInt(quickAno, 10);
-    const vinculoValor = parseFloat(quickVinculo);
-
-    if (!npNum || !quickNpAno || !empNum || !empAno || isNaN(vinculoValor)) {
-      setQuickError('Preencha todos os campos: Nº NP, Ano NP, Nº Empenho, Ano e Valor Vínculo.');
-      return;
-    }
-
-    setSavingQuick(true);
-    const [npResult, empResult] = await Promise.all([
-      findNpByNumeroEAno(npNum, parseInt(quickNpAno, 10)),
-      findEmpenhoByNumeroEAno(empNum, empAno),
-    ]);
-
-    const erros: string[] = [];
-    if (!npResult.data) erros.push(`NP nº ${npNum} (${npResult.errorMessage})`);
-    if (!empResult.data) erros.push(`Empenho nº ${empNum}/${empAno} (${empResult.errorMessage})`);
-
-    if (erros.length > 0) {
-      setQuickError(`Não encontrado(s):\n• ${erros.join('\n• ')}`);
-      setSavingQuick(false);
-      return;
-    }
-
-    const novoDto: PaymentNoteEmpenhoDto = {
-      empenhoDto: empResult.data!,
-      paymentNoteBasicDto: npResult.data!,
-      financialPlanningBasicDto: null,
-      value: vinculoValor,
-    };
-
-    const saveResult = await savePaymentEmpenho(novoDto);
-    if (saveResult.data) {
-      setQuickNp('');
-      setQuickNpAno('');
-      setQuickEmpenho('');
-      setQuickAno('');
-      setQuickVinculo('');
-      setQuickSuccess('Vínculo salvo com sucesso!');
-      await loadAll(currentPage);
-    } else {
-      setQuickError(saveResult.errorMessage ?? 'Erro ao salvar o vínculo.');
-    }
-    setSavingQuick(false);
-  }
 
   // ── Inline Editing ─────────────────────────────────────────────────────────
 
@@ -222,65 +157,88 @@ export default function Dashboard() {
     if (!editState) return;
 
     const npNum = parseInt(editState.numeroNp, 10);
-    const npAno = editState.npAno ? parseInt(editState.npAno, 10) : null;
     const empNum = parseInt(editState.numeroEmpenho, 10);
     const empAno = parseInt(editState.anoEmpenho, 10);
     const fpNum = editState.numeroFP ? parseInt(editState.numeroFP, 10) : null;
     const vinculoValor = editState.valorVinculo ? parseFloat(editState.valorVinculo) : originalRow.value;
 
-    const originalNpYear = extractNpYear(originalRow.paymentNoteBasicDto.dataLiquidacao);
-    const npAlterado = npNum !== originalRow.paymentNoteBasicDto.numeroNp || (npAno !== null && npAno !== originalNpYear);
-    const empAlterado = empNum !== originalRow.empenhoDto.numero || empAno !== originalRow.empenhoDto.ano;
-    const fpAlterado = fpNum !== (originalRow.financialPlanningBasicDto?.numero ?? null);
-
     if (!npNum || !empNum || !empAno) {
       setRowErrors((prev) => ({ ...prev, [index]: 'Nº NP, Nº Empenho e Ano são obrigatórios.' }));
+      return;
+    }
+    if (isNaN(vinculoValor)) {
+      setRowErrors((prev) => ({ ...prev, [index]: 'Valor do vínculo inválido.' }));
+      return;
+    }
+    // PF: se informou número precisa do ano para derivar a data
+    const fpAnoRaw = editState.anoFP ? parseInt(editState.anoFP, 10) : null;
+    if (fpNum && !fpAnoRaw) {
+      setRowErrors((prev) => ({ ...prev, [index]: 'Informe o Ano do PF para realizar a busca.' }));
       return;
     }
 
     setConfirmingMap((prev) => ({ ...prev, [index]: true }));
 
-    const npYearToUse = npAno ?? originalNpYear;
+    // ── Derivar dataLiquidacao da NP ───────────────────────────────────────────
+    // Se o usuário não alterou a NP, mantemos a data original.
+    // Se alterou, precisamos buscar a NP para obter a dataLiquidacao correta.
+    const originalNpYear = extractNpYear(originalRow.paymentNoteBasicDto.dataLiquidacao);
+    const npAlterado =
+      npNum !== originalRow.paymentNoteBasicDto.numeroNp ||
+      (editState.npAno !== '' && parseInt(editState.npAno, 10) !== originalNpYear);
 
-    // Buscar apenas se alterado
-    const npResult = npAlterado
-      ? await findNpByNumeroEAno(npNum, npYearToUse!)
-      : { data: originalRow.paymentNoteBasicDto, status: 200, errorMessage: null };
-
-    const empResult = empAlterado
-      ? await findEmpenhoByNumeroEAno(empNum, empAno)
-      : { data: originalRow.empenhoDto, status: 200, errorMessage: null };
-
-    const fpAnoRaw = editState.anoFP ? parseInt(editState.anoFP, 10) : null;
-    if (fpAlterado && fpNum && !fpAnoRaw) {
-      setRowErrors((prev) => ({ ...prev, [index]: 'Informe o Ano do PF para realizar a busca.' }));
-      setConfirmingMap((prev) => ({ ...prev, [index]: false }));
-      return;
-    }
-    const fpResult = fpAlterado && fpNum
-      ? await findFinancialPlanningByNumber(fpNum, fpAnoRaw!)
-      : { data: fpAlterado ? null : (originalRow.financialPlanningBasicDto ?? null), status: 200, errorMessage: null };
-
-    const erros: string[] = [];
-    if (npAlterado && !npResult.data) erros.push(`NP nº ${npNum}`);
-    if (empAlterado && !empResult.data) erros.push(`Empenho nº ${empNum}/${empAno}`);
-    if (fpAlterado && fpNum && !fpResult.data) erros.push(`Financial Planning nº ${fpNum}`);
-
-    if (erros.length > 0) {
-      setRowErrors((prev) => ({ ...prev, [index]: `Não encontrado(s): ${erros.join(', ')}` }));
-      setConfirmingMap((prev) => ({ ...prev, [index]: false }));
-      return;
+    let npDataLiquidacao = originalRow.paymentNoteBasicDto.dataLiquidacao;
+    if (npAlterado) {
+      const npAno = editState.npAno ? parseInt(editState.npAno, 10) : originalNpYear;
+      const npResult = await findNpByNumeroEAno(npNum, npAno!);
+      if (!npResult.data) {
+        setRowErrors((prev) => ({ ...prev, [index]: `NP nº ${npNum} não encontrada.` }));
+        setConfirmingMap((prev) => ({ ...prev, [index]: false }));
+        return;
+      }
+      npDataLiquidacao = npResult.data.dataLiquidacao;
     }
 
-    const updatedDto: PaymentNoteEmpenhoDto = {
-      id: editState.id,
-      empenhoDto: empResult.data!,
-      paymentNoteBasicDto: npResult.data!,
-      financialPlanningBasicDto: fpResult.data ?? null,
+    // ── Derivar data do PF ─────────────────────────────────────────────────────
+    // Se o usuário limpou o PF (fpNum === null), desassocia (null).
+    // Se manteve o mesmo PF, reutiliza a data original.
+    // Se alterou, busca o PF para obter a data correta.
+    let fpPayload: { numero: number; data: string } | null = null;
+    if (fpNum !== null) {
+      const originalFpNum = originalRow.financialPlanningBasicDto?.numero ?? null;
+      const fpAlterado = fpNum !== originalFpNum || editState.anoFP !== '';
+      if (!fpAlterado && originalRow.financialPlanningBasicDto) {
+        fpPayload = {
+          numero: originalRow.financialPlanningBasicDto.numero,
+          data: originalRow.financialPlanningBasicDto.data,
+        };
+      } else {
+        const fpResult = await findFinancialPlanningByNumber(fpNum, fpAnoRaw!);
+        if (!fpResult.data) {
+          setRowErrors((prev) => ({ ...prev, [index]: `Financial Planning nº ${fpNum} não encontrado.` }));
+          setConfirmingMap((prev) => ({ ...prev, [index]: false }));
+          return;
+        }
+        fpPayload = {
+          numero: fpResult.data.numero,
+          data: fpResult.data.data,
+        };
+      }
+    }
+
+    const updateResult = await updatePaymentEmpenho(editState.id, {
+      paymentNote: {
+        numeroNp: npNum,
+        dataLiquidacao: npDataLiquidacao,
+      },
+      empenho: {
+        numero: empNum,
+        ano: empAno,
+      },
+      financialPlanning: fpPayload,
       value: isNaN(vinculoValor) ? originalRow.value : vinculoValor,
-    };
+    });
 
-    const updateResult = await updatePaymentEmpenho(updatedDto);
     if (updateResult.data) {
       cancelEdit(index);
       await loadAll();
@@ -294,12 +252,12 @@ export default function Dashboard() {
 
   return (
     <PageShell>
-      {/* ── Quick Save Bar ─────────────────────────────────────────────────── */}
-      <div className="mx-3 sm:mx-6 mt-6 p-4 glass-panel">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs uppercase tracking-widest text-stone-500 font-bold">
-            ▶ Cadastro Rápido de Vínculo
-          </p>
+      {/* ── Main Table ─────────────────────────────────────────────────────── */}
+      <div className="px-3 sm:px-6 py-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-amber-400 font-bold uppercase tracking-widest text-sm">
+            ▶ Vínculos Registrados
+          </h2>
           <Button
             variant="secondary"
             size="sm"
@@ -307,34 +265,6 @@ export default function Dashboard() {
           >
             🔗 PFNR
           </Button>
-        </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <Input label="Nº NP" type="number" placeholder="Ex: 2024001"
-            value={quickNp} onChange={(e) => setQuickNp(e.target.value)} className="w-full sm:w-36" />
-          <Input label="Ano NP" type="number" placeholder="Ex: 2024"
-            value={quickNpAno} onChange={(e) => setQuickNpAno(e.target.value)} className="w-full sm:w-28" />
-          <Input label="Nº Empenho" type="number" placeholder="Ex: 12345"
-            value={quickEmpenho} onChange={(e) => setQuickEmpenho(e.target.value)} className="w-full sm:w-36" />
-          <Input label="Ano Empenho" type="number" placeholder="Ex: 2024"
-            value={quickAno} onChange={(e) => setQuickAno(e.target.value)} className="w-full sm:w-32" />
-          <Input label="Valor Vínculo" type="number" placeholder="Valor"
-            value={quickVinculo} onChange={(e) => setQuickVinculo(e.target.value)} className="w-full sm:w-36" />
-          <Button variant="primary" size="md" loading={savingQuick} onClick={handleQuickSave} className="mb-0.5 w-full sm:w-auto">
-            Salvar Vínculo
-          </Button>
-        </div>
-        <div className="mt-3 space-y-2">
-          {quickError && <Alert variant="error" message={quickError} onClose={() => setQuickError(null)} />}
-          {quickSuccess && <Alert variant="success" message={quickSuccess} onClose={() => setQuickSuccess(null)} />}
-        </div>
-      </div>
-
-      {/* ── Main Table ─────────────────────────────────────────────────────── */}
-      <div className="px-3 sm:px-6 py-6">
-        <div className="mb-4">
-          <h2 className="text-amber-400 font-bold uppercase tracking-widest text-sm">
-            ▶ Vínculos Registrados
-          </h2>
         </div>
 
         {listError && <Alert variant="error" message={listError} onClose={() => setListError(null)} />}

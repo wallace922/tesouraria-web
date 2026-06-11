@@ -7,6 +7,9 @@ import Select from '../components/Select';
 import Alert from '../components/Alert';
 import TaxItemsDisplay from '../components/TaxItemsDisplay';
 import TaxRuleItemEditor from '../components/TaxRuleItemEditor';
+import QuickFormEmpresa from './CadastroTabs/QuickFormEmpresa';
+import QuickFormEmpenho from './CadastroTabs/QuickFormEmpenho';
+import VinculoBlock from './CadastroTabs/VinculoBlock';
 import {
   saveEmpresa,
   saveEmpenho,
@@ -24,7 +27,7 @@ import type {
   TaxRuleItemDto,
   OptanteStatus,
 } from '../types';
-import { formatCNPJ, formatCurrency, formatDate } from '../lib/utils';
+import { formatCNPJ, formatCurrency, formatDate, parseBRCurrency, applyDateMask } from '../lib/utils';
 
 // ── Tabs config ───────────────────────────────────────────────────────────────
 
@@ -35,6 +38,11 @@ const TABS: Tab[] = [
   { key: 'paymentNote',       label: 'Payment Note',       icon: '💰' },
   { key: 'taxRule',           label: 'Regra de Imposto',   icon: '📋' },
 ];
+
+// Divisor de seção para o painel direito
+function PanelDivider() {
+  return <div className="border-t border-white/10 my-1" />;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -295,15 +303,19 @@ function FormPaymentNote() {
   async function handleSave() {
     setError(null); setSuccess(null);
     if (!numeroNp || !dataLiq || !docOrigin || !value) { setError('Preencha todos os campos obrigatórios.'); return; }
+    const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
+    if (!dateRegex.test(dataLiq)) { setError('Data Liquidação inválida. Use o formato DD/MM/YYYY.'); return; }
     if (!cnpjValid) { setError('Valide o CNPJ antes de salvar (campo deve estar com empresa encontrada).'); return; }
+    const parsedValue = parseBRCurrency(value);
+    if (isNaN(parsedValue)) { setError('Valor inválido. Use o formato numérico (ex: 1.500,30 ou 1500.30).'); return; }
     setLoading(true);
 
     const dto: PaymentNoteDto = {
       numeroNp: parseInt(numeroNp, 10),
-      dataLiquidacao: formatDate(dataLiq),
+      dataLiquidacao: dataLiq,   // já está DD/MM/YYYY via applyDateMask
       empresa: { nome: empresaNome, cnpj: cnpj.replace(/\D/g, '') },
       docOrigin: docOrigin.trim(),
-      value: parseFloat(value),
+      value: parsedValue,
       status,
       tax: {
         tipo: taxTipo,
@@ -323,98 +335,135 @@ function FormPaymentNote() {
 
   return (
     <div className="space-y-6">
-      <div className="glass-panel p-5 space-y-6">
-        <div>
-          <SectionTitle>Dados Principais</SectionTitle>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-2xl">
-            <Input label="Nº NP" type="number" placeholder="2024001" value={numeroNp} onChange={(e) => setNumeroNp(e.target.value)} />
-            <Input label="Data Liquidação" type="date" value={dataLiq} onChange={(e) => setDataLiq(e.target.value)} />
-            <Input label="Doc. Origem" placeholder="DOC-001" value={docOrigin} onChange={(e) => setDocOrigin(e.target.value)} />
-            <Input label="Valor (R$)" type="number" step="0.01" placeholder="0.00" value={value} onChange={(e) => setValue(e.target.value)} />
-            <Select label="Status" value={status} onChange={e => setStatus(e.target.value as PaymentNoteDto['status'])} options={[
-              { value: 'A_PAGAR', label: 'A PAGAR' },
-              { value: 'PAGA', label: 'PAGA' },
-              { value: 'CANCELADA', label: 'CANCELADA' },
-            ]} />
-          </div>
-        </div>
+      {/* ── Parte Superior: layout 2 colunas ─────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
-        <div>
-          <SectionTitle>Empresa (Validação por CNPJ)</SectionTitle>
-          <div className="max-w-sm space-y-2">
-            <div className="flex items-end gap-3">
-              <Input label="CNPJ da Empresa" placeholder="XX.XXX.XXX/XXXX-XX" value={cnpj}
-                onChange={(e) => handleCnpj(e.target.value)} onBlur={handleCnpjBlur}
-                maxLength={18} className="flex-1" error={cnpjError ?? undefined} />
-              {cnpjLoading && (
-                <span className="mb-2 text-stone-400 text-xs flex items-center gap-1">
-                  <span className="inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
-                  Buscando...
-                </span>
-              )}
-            </div>
-            {cnpjValid === true && (
-              <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono">
-                <span>✔</span><span>{empresaNome}</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Tributação — apenas tipo e codEfd */}
-        <div>
-          <SectionTitle>Tributação</SectionTitle>
-          <div className="space-y-4 max-w-2xl">
-            <div className="w-full sm:w-48">
-              <Select label="Tipo de Tributação" value={taxTipo} onChange={e => setTaxTipo(e.target.value as OptanteStatus)} options={[
-                { value: 'OPTANTE', label: 'OPTANTE' },
-                { value: 'NAO_OPTANTE', label: 'NÃO OPTANTE' },
+        {/* Coluna Esquerda — Formulário da NP */}
+        <div className="glass-panel p-5 space-y-6">
+          <div>
+            <SectionTitle>Dados da Payment Note</SectionTitle>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input label="Nº NP" type="number" placeholder="2024001" value={numeroNp} onChange={(e) => setNumeroNp(e.target.value)} />
+              <Input
+                label="Data Liquidação"
+                type="text"
+                inputMode="numeric"
+                placeholder="DD/MM/YYYY"
+                value={dataLiq}
+                onChange={(e) => setDataLiq(applyDateMask(e.target.value))}
+                maxLength={10}
+              />
+              <Input label="Doc. Origem" placeholder="DOC-001" value={docOrigin} onChange={(e) => setDocOrigin(e.target.value)} />
+              <Input
+                label="Valor (R$)"
+                type="text"
+                inputMode="decimal"
+                placeholder="Ex: 1.500,30"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+              />
+              <Select label="Status" value={status} onChange={e => setStatus(e.target.value as PaymentNoteDto['status'])} options={[
+                { value: 'A_PAGAR', label: 'A PAGAR' },
+                { value: 'PAGA', label: 'PAGA' },
+                { value: 'CANCELADA', label: 'CANCELADA' },
               ]} />
             </div>
-            {taxTipo === 'NAO_OPTANTE' && (
-              <div className="animate-fadeIn">
-                <Input label="Cód. EFD" type="number" placeholder="17001" value={codEfd}
-                  onChange={(e) => setCodEfd(e.target.value)} className="w-full sm:w-48" />
-                <p className="text-stone-500 text-xs mt-1">
-                  O backend calculará os impostos automaticamente com base na Regra de Imposto do Cód. EFD.
-                </p>
-              </div>
-            )}
           </div>
+
+          <div>
+            <SectionTitle>Empresa (Validação por CNPJ)</SectionTitle>
+            <div className="space-y-2">
+              <div className="flex items-end gap-3">
+                <Input label="CNPJ da Empresa" placeholder="XX.XXX.XXX/XXXX-XX" value={cnpj}
+                  onChange={(e) => handleCnpj(e.target.value)} onBlur={handleCnpjBlur}
+                  maxLength={18} className="flex-1" error={cnpjError ?? undefined} />
+                {cnpjLoading && (
+                  <span className="mb-2 text-stone-400 text-xs flex items-center gap-1">
+                    <span className="inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                    Buscando...
+                  </span>
+                )}
+              </div>
+              {cnpjValid === true && (
+                <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono">
+                  <span>✔</span><span>{empresaNome}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <SectionTitle>Tributação</SectionTitle>
+            <div className="space-y-4">
+              <div className="w-full sm:w-48">
+                <Select label="Tipo de Tributação" value={taxTipo} onChange={e => setTaxTipo(e.target.value as OptanteStatus)} options={[
+                  { value: 'OPTANTE', label: 'OPTANTE' },
+                  { value: 'NAO_OPTANTE', label: 'NÃO OPTANTE' },
+                ]} />
+              </div>
+              {taxTipo === 'NAO_OPTANTE' && (
+                <div className="animate-fadeIn">
+                  <Input label="Cód. EFD" type="number" placeholder="17001" value={codEfd}
+                    onChange={(e) => setCodEfd(e.target.value)} className="w-full sm:w-48" />
+                  <p className="text-stone-500 text-xs mt-1">
+                    O backend calculará os impostos automaticamente com base na Regra de Imposto do Cód. EFD.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
+            <Button variant="primary" loading={loading} disabled={cnpjValid === false || loading} onClick={handleSave}>
+              Cadastrar Payment Note
+            </Button>
+          </div>
+
+          {success && (
+            <SuccessCard data={success} renderFn={(d) => (
+              <>
+                {d.id !== undefined && <Field label="ID" value={d.id} />}
+                <Field label="Nº NP" value={d.numeroNp} />
+                <Field label="Data Liq." value={formatDate(d.dataLiquidacao)} />
+                <Field label="Empresa" value={d.empresa.nome} />
+                <Field label="CNPJ" value={formatCNPJ(d.empresa.cnpj)} />
+                <Field label="Doc. Origem" value={d.docOrigin} />
+                <Field label="Valor" value={formatCurrency(d.value)} />
+                <Field label="Status" value={d.status} />
+                <Field label="Tributação" value={d.tax?.tipo ?? '—'} />
+                {d.tax?.tipo === 'NAO_OPTANTE' && d.tax.codEfd && (
+                  <Field label="Cód. EFD" value={d.tax.codEfd} />
+                )}
+                {d.tax?.calculatedItems && d.tax.calculatedItems.length > 0 && (
+                  <div className="mt-4">
+                    <TaxItemsDisplay items={d.tax.calculatedItems} taxStatus={d.tax.taxStatus} />
+                  </div>
+                )}
+              </>
+            )} />
+          )}
         </div>
 
-        <div className="space-y-3">
-          {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
-          <Button variant="primary" loading={loading} disabled={cnpjValid === false || loading} onClick={handleSave}>
-            Cadastrar Payment Note
-          </Button>
+        {/* Coluna Direita — Cadastros Auxiliares Rápidos */}
+        <div className="glass-panel p-5 space-y-5">
+          <p className="text-xs uppercase tracking-widest text-amber-400 font-black">
+            ⚡ Cadastros Auxiliares Rápidos
+          </p>
+          <p className="text-[11px] text-stone-500 -mt-3">
+            Cadastre empresa e empenho sem sair desta tela. Para edição completa, use as abas dedicadas.
+          </p>
+
+          <QuickFormEmpresa />
+
+          <PanelDivider />
+
+          <QuickFormEmpenho />
         </div>
       </div>
 
-      {success && (
-        <SuccessCard data={success} renderFn={(d) => (
-          <>
-            {d.id !== undefined && <Field label="ID" value={d.id} />}
-            <Field label="Nº NP" value={d.numeroNp} />
-            <Field label="Data Liq." value={formatDate(d.dataLiquidacao)} />
-            <Field label="Empresa" value={d.empresa.nome} />
-            <Field label="CNPJ" value={formatCNPJ(d.empresa.cnpj)} />
-            <Field label="Doc. Origem" value={d.docOrigin} />
-            <Field label="Valor" value={formatCurrency(d.value)} />
-            <Field label="Status" value={d.status} />
-            <Field label="Tributação" value={d.tax?.tipo ?? '—'} />
-            {d.tax?.tipo === 'NAO_OPTANTE' && d.tax.codEfd && (
-              <Field label="Cód. EFD" value={d.tax.codEfd} />
-            )}
-            {/* Impostos calculados retornados pelo backend */}
-            {d.tax?.calculatedItems && d.tax.calculatedItems.length > 0 && (
-              <div className="mt-4">
-                <TaxItemsDisplay items={d.tax.calculatedItems} taxStatus={d.tax.taxStatus} />
-              </div>
-            )}
-          </>
-        )} />
-      )}
+      {/* ── Parte Inferior: Vínculo NP-Empenho ───────────────────────── */}
+      <VinculoBlock />
     </div>
   );
 }

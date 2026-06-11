@@ -42,3 +42,33 @@ export function toApiDate(dateStr: string): string {
   }
   return dateStr;
 }
+
+/**
+ * Converte valor monetário no formato brasileiro para number.
+ * Suporta: "1.500,30" → 1500.30, "1500,30" → 1500.30, "1500.30" → 1500.30, "1500" → 1500
+ *
+ * Regra: se há vírgula → ponto é separador de milhar, vírgula é decimal.
+ *        se não há vírgula → ponto é decimal (formato EN ou valor inteiro).
+ */
+export function parseBRCurrency(raw: string): number {
+  const s = raw.replace(/R\$\s?/g, '').trim();
+  if (!s) return NaN;
+  if (s.includes(',')) {
+    // Formato BR: remove pontos de milhar, troca vírgula por ponto decimal
+    return parseFloat(s.replace(/\./g, '').replace(',', '.'));
+  }
+  // Sem vírgula: ponto é decimal (ou valor inteiro)
+  return parseFloat(s);
+}
+
+/**
+ * Aplica máscara DD/MM/YYYY enquanto o usuário digita ou cola.
+ * Aceita qualquer separador (/, -, espaço) na entrada.
+ */
+export function applyDateMask(raw: string): string {
+  // Extrai apenas dígitos
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
