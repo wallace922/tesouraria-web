@@ -166,7 +166,7 @@ export default function BuscaDarf() {
     if (result.data) {
       const d = result.data as any;
       setResults(d.content ?? []);
-      setCurrentPage(d.page ?? 0);
+      setCurrentPage(d.pageNumber ?? d.page ?? 0);
       setTotalPages(d.totalPages ?? 0);
       setTotalElements(d.totalElements ?? 0);
       setSearched(true);
