@@ -230,6 +230,11 @@ export default function BuscaPaymentNote() {
 
       {showAll && !editing && allResults.length > 0 && (
         <>
+          <PaginationControls currentPage={currentPage} totalPages={totalPages} totalElements={totalElements}
+            loading={searching}
+            onPrevious={() => handlePreviousPage(getAllNp)}
+            onNext={() => handleNextPage(getAllNp)}
+            onGoToPage={(page) => handleGoToPage(page, getAllNp)} />
           <TableContainer title="Resultados" count={allResults.length}>
             <table className="w-full text-sm">
               <thead>

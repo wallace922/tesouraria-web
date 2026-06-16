@@ -293,6 +293,32 @@ export default function BuscaDarf() {
               </div>
             </div>
 
+            {/* ── Paginação (topo) ─────────────────────────────────────────── */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between px-2 gap-4 sm:gap-0">
+                <span className="text-xs text-stone-500">
+                  Página {currentPage + 1} de {totalPages}
+                  {totalElements > 0 && ` (${totalElements} registros)`}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => fetchPage(currentPage - 1)} disabled={currentPage === 0 || loading}>
+                    ← Anterior
+                  </Button>
+                  <Input
+                    placeholder="Pág"
+                    value={pageInput}
+                    onChange={(e) => setPageInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleGoToPage()}
+                    className="w-16 text-center text-xs"
+                  />
+                  <Button variant="ghost" size="sm" onClick={handleGoToPage} disabled={loading}>Ir</Button>
+                  <Button variant="ghost" size="sm" onClick={() => fetchPage(currentPage + 1)} disabled={currentPage >= totalPages - 1 || loading}>
+                    Próxima →
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* ── Tabela agrupada por Código de Receita ─────────────────────── */}
             <div className="glass-panel overflow-hidden">
               {/* Cabeçalho fixo da tabela */}

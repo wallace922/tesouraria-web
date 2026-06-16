@@ -111,6 +111,15 @@ export default function BuscaEmpresa() {
 
       {showAll && !editing && allResults.length > 0 && (
         <>
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            loading={loading}
+            onPrevious={() => handlePreviousPage(getAllEmpresa)}
+            onNext={() => handleNextPage(getAllEmpresa)}
+            onGoToPage={(page) => handleGoToPage(page, getAllEmpresa)}
+          />
           <TableContainer title="Resultados" count={allResults.length}>
             <table className="w-full text-sm">
               <thead>

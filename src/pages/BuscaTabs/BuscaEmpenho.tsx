@@ -115,6 +115,15 @@ export default function BuscaEmpenho() {
 
       {showAll && !editing && allResults.length > 0 && (
         <>
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            loading={loading}
+            onPrevious={() => handlePreviousPage(getAllEmpenho)}
+            onNext={() => handleNextPage(getAllEmpenho)}
+            onGoToPage={(page) => handleGoToPage(page, getAllEmpenho)}
+          />
           <TableContainer title="Resultados" count={allResults.length}>
             <table className="w-full text-sm">
               <thead>

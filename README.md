@@ -398,7 +398,15 @@ Apenas `tipo` e `codEfd` devem ser enviados no campo `tax`. **Nunca** enviar `ca
 O `codEfd` de uma TaxRule não pode ser alterado via PUT. O backend ignora o campo. Para "mover" uma regra para outro `codEfd`, crie uma nova regra via POST.
 
 ### 5. Paginação
-As entidades principais (PaymentEmpenho, NP, Empenho, FinancialPlanning, Empresa) retornam respostas paginadas (`PageDto<T>`). Sempre trabalhar com `.content` para acessar os dados e usar `PaginationControls` para navegar entre páginas.
+As entidades principais (PaymentEmpenho, NP, Empenho, FinancialPlanning, Empresa) retornam respostas paginadas (`PageDto<T>`). Sempre trabalhar com `.content` para acessar os dados.
+
+Os controles de paginação são exibidos **tanto no topo quanto no rodapé** de todas as listas paginadas, evitando que o usuário precise rolar até o final da página para navegar entre páginas mais antigas. Isso se aplica a:
+
+- Todas as abas de busca (`BuscaEmpresa`, `BuscaEmpenho`, `BuscaFinancialPlanning`, `BuscaPaymentNote`)
+- Relatório DARF (`BuscaDarf`)
+- Dashboard principal (`Dashboard`)
+
+> `BuscaTaxRule` **não** possui paginação — a API de TaxRule retorna todas as versões de uma vez, sem `page`/`size`.
 
 ### 6. Sem gerenciador de estado externo
 O projeto usa apenas `useState` e `useEffect` nativos. Não introduzir Redux, Zustand, Context API ou similares sem decisão explícita.

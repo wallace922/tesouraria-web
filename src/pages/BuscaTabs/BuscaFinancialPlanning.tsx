@@ -113,6 +113,15 @@ export default function BuscaFinancialPlanning() {
 
       {showAll && !editing && allResults.length > 0 && (
         <>
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            loading={loading}
+            onPrevious={() => handlePreviousPage(getAllFinancialPlanning)}
+            onNext={() => handleNextPage(getAllFinancialPlanning)}
+            onGoToPage={(page) => handleGoToPage(page, getAllFinancialPlanning)}
+          />
           <TableContainer title="Resultados" count={allResults.length}>
             <table className="w-full text-sm">
               <thead>
