@@ -3,6 +3,7 @@ import Button from '../../components/Button';
 import Alert from '../../components/Alert';
 import Select from '../../components/Select';
 import Input from '../../components/Input';
+import PaginationControls from '../../components/PaginationControls';
 import TaxItemsDisplay from '../../components/TaxItemsDisplay';
 import { SectionTitle } from './Shared';
 import { getPaymentEmpenhoByMesAno } from '../../services/api';
@@ -143,9 +144,6 @@ export default function BuscaDarf() {
   const [totalPages, setTotalPages]       = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [searched, setSearched]           = useState(false);
-  const [pageInput, setPageInput]         = useState('');
-
-
 
   // ── Busca ─────────────────────────────────────────────────────────────────
 
@@ -177,14 +175,6 @@ export default function BuscaDarf() {
   }
 
   function handleSearch() { setCurrentPage(0); fetchPage(0); }
-
-  function handleGoToPage() {
-    const page = parseInt(pageInput, 10) - 1;
-    if (!isNaN(page) && page >= 0 && page < totalPages) {
-      fetchPage(page);
-      setPageInput('');
-    }
-  }
 
   // ── Totais globais da página ──────────────────────────────────────────────
 
@@ -294,30 +284,15 @@ export default function BuscaDarf() {
             </div>
 
             {/* ── Paginação (topo) ─────────────────────────────────────────── */}
-            {totalPages > 1 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between px-2 gap-4 sm:gap-0">
-                <span className="text-xs text-stone-500">
-                  Página {currentPage + 1} de {totalPages}
-                  {totalElements > 0 && ` (${totalElements} registros)`}
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => fetchPage(currentPage - 1)} disabled={currentPage === 0 || loading}>
-                    ← Anterior
-                  </Button>
-                  <Input
-                    placeholder="Pág"
-                    value={pageInput}
-                    onChange={(e) => setPageInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleGoToPage()}
-                    className="w-16 text-center text-xs"
-                  />
-                  <Button variant="ghost" size="sm" onClick={handleGoToPage} disabled={loading}>Ir</Button>
-                  <Button variant="ghost" size="sm" onClick={() => fetchPage(currentPage + 1)} disabled={currentPage >= totalPages - 1 || loading}>
-                    Próxima →
-                  </Button>
-                </div>
-              </div>
-            )}
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalElements={totalElements}
+              loading={loading}
+              onPrevious={() => fetchPage(currentPage - 1)}
+              onNext={() => fetchPage(currentPage + 1)}
+              onGoToPage={(page) => fetchPage(page)}
+            />
 
             {/* ── Tabela agrupada por Código de Receita ─────────────────────── */}
             <div className="glass-panel overflow-hidden">
@@ -516,31 +491,16 @@ export default function BuscaDarf() {
               </div>
             </div>
 
-            {/* ── Paginação ────────────────────────────────────────────────── */}
-            {totalPages > 1 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between mt-2 px-2 gap-4 sm:gap-0">
-                <span className="text-xs text-stone-500">
-                  Página {currentPage + 1} de {totalPages}
-                  {totalElements > 0 && ` (${totalElements} registros)`}
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => fetchPage(currentPage - 1)} disabled={currentPage === 0 || loading}>
-                    ← Anterior
-                  </Button>
-                  <Input
-                    placeholder="Pág"
-                    value={pageInput}
-                    onChange={(e) => setPageInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleGoToPage()}
-                    className="w-16 text-center text-xs"
-                  />
-                  <Button variant="ghost" size="sm" onClick={handleGoToPage} disabled={loading}>Ir</Button>
-                  <Button variant="ghost" size="sm" onClick={() => fetchPage(currentPage + 1)} disabled={currentPage >= totalPages - 1 || loading}>
-                    Próxima →
-                  </Button>
-                </div>
-              </div>
-            )}
+            {/* ── Paginação (rodapé) ───────────────────────────────────────── */}
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalElements={totalElements}
+              loading={loading}
+              onPrevious={() => fetchPage(currentPage - 1)}
+              onNext={() => fetchPage(currentPage + 1)}
+              onGoToPage={(page) => fetchPage(page)}
+            />
           </>
         )
       )}

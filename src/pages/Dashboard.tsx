@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageShell from '../components/PageShell';
 import Button from '../components/Button';
-import Input from '../components/Input';
 import Alert from '../components/Alert';
+import PaginationControls from '../components/PaginationControls';
 import {
   getAllPaymentEmpenhos,
   updatePaymentEmpenho,
@@ -76,7 +76,6 @@ export default function Dashboard() {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [pageSize] = useState(50);
-  const [pageInput, setPageInput] = useState('');
 
   // Inline editing
   const [editingMap, setEditingMap] = useState<EditingMap>({});
@@ -105,14 +104,6 @@ export default function Dashboard() {
     }
     setLoadingList(false);
   }
-
-  const handleGoToPage = () => {
-    const page = parseInt(pageInput, 10) - 1;
-    if (!isNaN(page) && page >= 0 && page < totalPages) {
-      loadAll(page);
-      setPageInput('');
-    }
-  };
 
   useEffect(() => { loadAll(0); }, []);
 
@@ -285,44 +276,15 @@ export default function Dashboard() {
         ) : (
           <>
             {/* ── Paginação (topo) ─────────────────────────────────────────── */}
-            {totalPages > 1 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between mb-3 px-2 gap-4 sm:gap-0">
-                <span className="text-xs text-stone-500">
-                  Página {currentPage + 1} de {totalPages || 1}
-                  {totalElements > 0 && ` (${totalElements} registros)`}
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost" size="sm"
-                    onClick={() => loadAll(currentPage - 1)}
-                    disabled={currentPage === 0 || loadingList}
-                  >
-                    ← Anterior
-                  </Button>
-                  <Input
-                    placeholder="Pág"
-                    value={pageInput}
-                    onChange={(e) => setPageInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleGoToPage()}
-                    className="w-16 text-center text-xs"
-                  />
-                  <Button
-                    variant="ghost" size="sm"
-                    onClick={handleGoToPage}
-                    disabled={loadingList}
-                  >
-                    Ir
-                  </Button>
-                  <Button
-                    variant="ghost" size="sm"
-                    onClick={() => loadAll(currentPage + 1)}
-                    disabled={currentPage >= totalPages - 1 || loadingList}
-                  >
-                    Próxima →
-                  </Button>
-                </div>
-              </div>
-            )}
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalElements={totalElements}
+              loading={loadingList}
+              onPrevious={() => loadAll(currentPage - 1)}
+              onNext={() => loadAll(currentPage + 1)}
+              onGoToPage={(page) => loadAll(page)}
+            />
 
             <div className="glass-panel overflow-hidden">
               {/* Mobile: card view */}
@@ -649,42 +611,15 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-between mt-4 px-2 gap-4 sm:gap-0">
-              <span className="text-xs text-stone-500">
-                Página {currentPage + 1} de {totalPages || 1}
-                {totalElements > 0 && ` (${totalElements} registros)`}
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost" size="sm"
-                  onClick={() => loadAll(currentPage - 1)}
-                  disabled={currentPage === 0 || loadingList}
-                >
-                  ← Anterior
-                </Button>
-                <Input
-                  placeholder="Pág"
-                  value={pageInput}
-                  onChange={(e) => setPageInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleGoToPage()}
-                  className="w-16 text-center text-xs"
-                />
-                <Button
-                  variant="ghost" size="sm"
-                  onClick={handleGoToPage}
-                  disabled={loadingList}
-                >
-                  Ir
-                </Button>
-                <Button
-                  variant="ghost" size="sm"
-                  onClick={() => loadAll(currentPage + 1)}
-                  disabled={currentPage >= totalPages - 1 || loadingList}
-                >
-                  Próxima →
-                </Button>
-              </div>
-            </div>
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalElements={totalElements}
+              loading={loadingList}
+              onPrevious={() => loadAll(currentPage - 1)}
+              onNext={() => loadAll(currentPage + 1)}
+              onGoToPage={(page) => loadAll(page)}
+            />
           </>
         )}
       </div>
