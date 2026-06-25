@@ -40,6 +40,7 @@ export default function BuscaPaymentNote() {
   const [empresaNome, setEmpresaNome] = useState('');
   const [taxTipo, setTaxTipo] = useState<OptanteStatus>('OPTANTE');
   const [codEfd, setCodEfd] = useState('');
+  const [datePayment, setDatePayment] = useState(''); // YYYY-MM-DD (input date)
   // Ajuste manual de impostos
   const [manualItems, setManualItems] = useState<import('../../types').TaxCalculatedItem[]>([]);
   const [isManualAdjustment, setIsManualAdjustment] = useState(false);
@@ -81,6 +82,7 @@ export default function BuscaPaymentNote() {
     setCnpjError(null);
     setTaxTipo(np.tax?.tipo ?? 'OPTANTE');
     setCodEfd(np.tax?.codEfd ? String(np.tax.codEfd) : '');
+    setDatePayment(np.datePayment ? toInputDate(np.datePayment) : '');
     // Pre-popula o painel de ajuste com os itens existentes (se houver)
     const items = np.tax?.calculatedItems ?? [];
     setManualItems(items.map(i => ({ ...i })));
@@ -114,6 +116,8 @@ export default function BuscaPaymentNote() {
           ? { manualAdjustment: true, calculatedItems: manualItems }
           : {}),
       },
+      // datePayment: enviado somente se status for PAGA e a data estiver preenchida
+      datePayment: status === 'PAGA' && datePayment ? datePayment : null,
     };
     handleSaveRequest(() => updatePaymentNote(payload), 'Payment Note atualizada!', () => handleGetAllRequest(getAllNp));
   };
@@ -162,11 +166,28 @@ export default function BuscaPaymentNote() {
             <Input label="Data Liq." type="date" value={dataLiq} onChange={e => setDataLiq(e.target.value)} />
             <Input label="Doc. Origem" value={docOrigin} onChange={e => setDocOrigin(e.target.value)} />
             <Input label="Valor (R$)" type="number" step="0.01" value={value} onChange={e => setValue(e.target.value)} />
-            <Select label="Status" value={status} onChange={e => setStatus(e.target.value as PaymentNoteDto['status'])} options={[
+            <Select label="Status" value={status} onChange={e => {
+              const newStatus = e.target.value as PaymentNoteDto['status'];
+              setStatus(newStatus);
+              // Limpa a data de pagamento se sair do status PAGA
+              if (newStatus !== 'PAGA') setDatePayment('');
+            }} options={[
               { value: 'A_PAGAR', label: 'A PAGAR' },
               { value: 'PAGA', label: 'PAGA' },
               { value: 'CANCELADA', label: 'CANCELADA' },
             ]} />
+            {/* Data de pagamento — só visível quando status === PAGA */}
+            {status === 'PAGA' && (
+              <div className="animate-fadeIn">
+                <Input
+                  label="Data de Pagamento"
+                  type="date"
+                  value={datePayment}
+                  onChange={e => setDatePayment(e.target.value)}
+                />
+                <p className="text-xs text-amber-500/70 mt-1">Obrigatório quando status é PAGA.</p>
+              </div>
+            )}
           </div>
 
           <div>
@@ -256,9 +277,16 @@ export default function BuscaPaymentNote() {
                     <td className="py-2 pr-4 text-gray-300 text-xs">{np.empresa?.nome ?? '—'}</td>
                     <td className="py-2 pr-4 text-gray-200 font-mono text-xs">{formatCurrency(np.value)}</td>
                     <td className="py-2 pr-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider ${NP_STATUS_STYLE[np.status]}`}>
-                        {np.status.replace('_', ' ')}
-                      </span>
+                      <div className="space-y-0.5">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider ${NP_STATUS_STYLE[np.status]}`}>
+                          {np.status.replace('_', ' ')}
+                        </span>
+                        {np.status === 'PAGA' && np.datePayment && (
+                          <div className="text-[10px] text-emerald-400/70 font-mono">
+                            pago em {formatDate(np.datePayment)}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="py-2 pr-4">
                       {np.tax ? (

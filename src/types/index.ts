@@ -9,7 +9,8 @@ export interface EmpenhoDto {
   id?: number;
   numero: number;
   ano: number;
-  fontDeOrigin: number;
+  /** Opcional no backend — pode ser null em registros antigos. */
+  fontDeOrigin?: number;
   internalPlan: string;
   nature: number;
 }
@@ -88,6 +89,12 @@ export interface PaymentNoteDto {
   value: number;
   status: 'CANCELADA' | 'PAGA' | 'A_PAGAR';
   tax: TaxDto | null;
+  /**
+   * Data de pagamento efetivo — somente preenchido quando status === 'PAGA'.
+   * O backend zera automaticamente se o status mudar para outro valor.
+   * Formato: dd/MM/yyyy (retorno da API) ou yyyy-MM-dd (input HTML).
+   */
+  datePayment?: string | null;
 }
 
 // ── PaymentNote + Empenho (vínculo principal) ─────────────────────────────────
@@ -120,13 +127,16 @@ export interface PaymentNoteVinculacaoDto {
 
 /**
  * PaymentNoteEmpenhoBasicDto — retornado por GET /API/PaymentEmpenho/sem-planejamento
- * Vínculo sem FinancialPlanning associado.
+ * e GET /API/PaymentEmpenho (lista geral).
+ *
+ * ATENÇÃO: os nomes das propriedades batem exatamente com o backend Java:
+ *   paymentNoteBasicDto, empenhoDto, financialPlanningBasicDto
  */
 export interface PaymentNoteEmpenhoBasicDto {
   id: number;
-  paymentNote: PaymentNoteDto;
-  empenho: EmpenhoDto;
-  financialPlanning: null;
+  paymentNoteBasicDto: PaymentNoteDto;
+  empenhoDto: EmpenhoDto;
+  financialPlanningBasicDto: FinancialPlanningDto | null;
   value: number;
 }
 

@@ -590,7 +590,7 @@ export default function Dashboard() {
                                   {/* Empenho — Detalhes */}
                                   <div className="space-y-2">
                                     <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold"><span className="text-amber-500 mr-1">■</span>Empenho — Detalhes</p>
-                                    <ReadField label="Fonte Origem" value={row.empenhoDto.fontDeOrigin} />
+                                    <ReadField label="Fonte Origem" value={row.empenhoDto.fontDeOrigin ?? '—'} />
                                     <ReadField label="Natureza" value={row.empenhoDto.nature} />
                                   </div>
 

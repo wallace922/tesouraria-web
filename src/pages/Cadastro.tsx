@@ -200,7 +200,7 @@ function FormEmpenho() {
             {d.id !== undefined && <Field label="ID" value={d.id} />}
             <Field label="Nº Empenho" value={d.numero} />
             <Field label="Ano" value={d.ano} />
-            <Field label="Fonte de Origem" value={d.fontDeOrigin} />
+            <Field label="Fonte de Origem" value={d.fontDeOrigin ?? '—'} />
             <Field label="Plano Interno" value={d.internalPlan} />
             <Field label="Natureza" value={d.nature} />
           </>
@@ -285,6 +285,7 @@ function FormPaymentNote() {
   // Tributação — apenas tipo e codEfd (backend calcula os itens)
   const [taxTipo, setTaxTipo] = useState<OptanteStatus>('OPTANTE');
   const [codEfd, setCodEfd] = useState('');
+  const [datePayment, setDatePayment] = useState(''); // YYYY-MM-DD (input date)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<PaymentNoteDto | null>(null);
@@ -341,6 +342,8 @@ function FormPaymentNote() {
           ? { manualAdjustment: true, calculatedItems: manualItems }
           : {}),
       },
+      // datePayment só é aceito pelo backend quando status === 'PAGA'
+      datePayment: status === 'PAGA' && datePayment ? datePayment : null,
     };
 
     const result = await savePaymentNote(dto);
@@ -348,7 +351,7 @@ function FormPaymentNote() {
       setSuccess(result.data);
       setNumeroNp(''); setDataLiq(''); setDocOrigin(''); setValue('');
       setCnpj(''); setCnpjValid(null); setEmpresaNome('');
-      setTaxTipo('OPTANTE'); setCodEfd(''); setStatus('A_PAGAR');
+      setTaxTipo('OPTANTE'); setCodEfd(''); setStatus('A_PAGAR'); setDatePayment('');
       setManualItems([]); setIsManualAdjustment(false);
     } else { setError(result.errorMessage ?? 'Erro ao salvar Payment Note.'); }
     setLoading(false);
@@ -383,11 +386,28 @@ function FormPaymentNote() {
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
               />
-              <Select label="Status" value={status} onChange={e => setStatus(e.target.value as PaymentNoteDto['status'])} options={[
+              <Select label="Status" value={status} onChange={e => {
+                const newStatus = e.target.value as PaymentNoteDto['status'];
+                setStatus(newStatus);
+                // Limpa a data de pagamento se sair do status PAGA
+                if (newStatus !== 'PAGA') setDatePayment('');
+              }} options={[
                 { value: 'A_PAGAR', label: 'A PAGAR' },
                 { value: 'PAGA', label: 'PAGA' },
                 { value: 'CANCELADA', label: 'CANCELADA' },
               ]} />
+              {/* Data de pagamento — só visível quando status === PAGA */}
+              {status === 'PAGA' && (
+                <div className="animate-fadeIn">
+                  <Input
+                    label="Data de Pagamento"
+                    type="date"
+                    value={datePayment}
+                    onChange={e => setDatePayment(e.target.value)}
+                  />
+                  <p className="text-xs text-amber-500/70 mt-1">Obrigatório quando status é PAGA.</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -461,6 +481,9 @@ function FormPaymentNote() {
                 <Field label="Doc. Origem" value={d.docOrigin} />
                 <Field label="Valor" value={formatCurrency(d.value)} />
                 <Field label="Status" value={d.status} />
+                {d.status === 'PAGA' && d.datePayment && (
+                  <Field label="Data de Pagamento" value={formatDate(d.datePayment)} />
+                )}
                 <Field label="Tributação" value={d.tax?.tipo ?? '—'} />
                 {d.tax?.tipo === 'NAO_OPTANTE' && d.tax.codEfd && (
                   <Field label="Cód. EFD" value={d.tax.codEfd} />

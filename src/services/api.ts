@@ -192,6 +192,10 @@ export async function savePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<Pa
       value: dto.value,
       status: dto.status,
       tax: taxPayload,
+      // datePayment só é aceito pelo backend quando status === 'PAGA'
+      ...(dto.status === 'PAGA' && dto.datePayment
+        ? { datePayment: formatDate(dto.datePayment) }
+        : {}),
     };
     const res = await apiInstance.post<PaymentNoteDto>('/Np', payload);
     return { data: res.data, status: res.status, errorMessage: null };
@@ -207,6 +211,7 @@ export async function updatePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<
       : null;
 
     const payload = {
+      id: dto.id,
       numeroNp: dto.numeroNp,
       dataLiquidacao: formatDate(dto.dataLiquidacao),
       empresa: { cnpj: dto.empresa.cnpj },
@@ -214,6 +219,10 @@ export async function updatePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<
       value: dto.value,
       status: dto.status,
       tax: taxPayload,
+      // datePayment só é aceito pelo backend quando status === 'PAGA'
+      ...(dto.status === 'PAGA' && dto.datePayment
+        ? { datePayment: formatDate(dto.datePayment) }
+        : {}),
     };
     const res = await apiInstance.put<PaymentNoteDto>('/Np', payload);
     return { data: res.data, status: res.status, errorMessage: null };
