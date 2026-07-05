@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import Button from '../../components/Button';
 import Alert from '../../components/Alert';
 import Select from '../../components/Select';
@@ -89,42 +89,80 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+import type { PaymentNoteItemDto } from '../../types';
+
+/** Extrai codigoReceita e taxRuleDescription de um item específico. */
+function getItemTaxMeta(item: PaymentNoteItemDto) {
+  return {
+    codigoReceita: item.tax?.codigoReceita ?? null,
+    taxRuleDescription: item.tax?.taxRuleDescription ?? null,
+    codEfd: item.tax?.codEfd ?? null,
+    taxStatus: item.tax?.taxStatus ?? null,
+    calculatedItems: item.tax?.calculatedItems ?? [],
+  };
+}
+
 // ── Lógica de agrupamento ─────────────────────────────────────────────────────
+
+interface GroupItem {
+  np: PaymentNoteVinculacaoDto;
+  itemDto: PaymentNoteItemDto;
+  meta: ReturnType<typeof getItemTaxMeta>;
+}
 
 interface Group {
   codigoReceita: number | null;
   description: string | null;
-  items: PaymentNoteVinculacaoDto[];
+  items: GroupItem[];
   subtotalValor: number;
   subtotalImpostos: number;
 }
 
 function groupByCodigoReceita(results: PaymentNoteVinculacaoDto[]): Group[] {
-  // Mantém a ordem de inserção (já vem ordenado pelo backend por codigoReceita asc)
   const map = new Map<string, Group>();
 
-  for (const item of results) {
-    const key = String(item.tax?.codigoReceita ?? 'SEM_CODIGO');
-    if (!map.has(key)) {
-      map.set(key, {
-        codigoReceita: item.tax?.codigoReceita ?? null,
-        description: item.tax?.taxRuleDescription ?? null,
-        items: [],
-        subtotalValor: 0,
-        subtotalImpostos: 0,
+  for (const np of results) {
+    const naoOptanteItems = (np.items ?? []).filter(it => it.tax?.tipo === 'NAO_OPTANTE');
+    
+    // Fallback caso a NP não tenha itens não-optantes (aparece num grupo "sem imposto")
+    if (naoOptanteItems.length === 0) {
+      const key = 'SEM_CODIGO';
+      if (!map.has(key)) {
+        map.set(key, { codigoReceita: null, description: null, items: [], subtotalValor: 0, subtotalImpostos: 0 });
+      }
+      map.get(key)!.items.push({
+        np,
+        itemDto: np.items?.[0] ?? { value: np.value, description: null, tax: null } as any,
+        meta: { codigoReceita: null, taxRuleDescription: null, codEfd: null, taxStatus: null, calculatedItems: [] }
       });
+      continue;
     }
-    map.get(key)!.items.push(item);
+
+    for (const item of naoOptanteItems) {
+      const meta = getItemTaxMeta(item);
+      const key = String(meta.codigoReceita ?? 'SEM_CODIGO');
+      if (!map.has(key)) {
+        map.set(key, {
+          codigoReceita: meta.codigoReceita,
+          description: meta.taxRuleDescription,
+          items: [],
+          subtotalValor: 0,
+          subtotalImpostos: 0,
+        });
+      }
+      map.get(key)!.items.push({ np, itemDto: item, meta });
+    }
   }
 
-  // Subtotais por NP única dentro de cada grupo (evita dupla contagem)
+  // Subtotais por ITEM único dentro de cada grupo (evita dupla contagem se a NP tiver múltiplos PFs)
   for (const group of map.values()) {
-    const seen = new Set<number>();
-    for (const item of group.items) {
-      if (seen.has(item.numeroNp)) continue;
-      seen.add(item.numeroNp);
-      group.subtotalValor += item.value;
-      group.subtotalImpostos += (item.tax?.calculatedItems ?? []).reduce((s, i) => s + i.amount, 0);
+    const seen = new Set<string>();
+    for (const groupItem of group.items) {
+      const itemKey = groupItem.itemDto.id ? String(groupItem.itemDto.id) : `${groupItem.np.numeroNp}-${groupItem.itemDto.value}`;
+      if (seen.has(itemKey)) continue;
+      seen.add(itemKey);
+      group.subtotalValor += groupItem.itemDto.value;
+      group.subtotalImpostos += groupItem.meta.calculatedItems.reduce((s: number, i: {amount: number}) => s + i.amount, 0);
     }
   }
 
@@ -188,11 +226,19 @@ export default function BuscaDarf() {
     }, 0);
   })();
   const totalImpostos = (() => {
-    const seen = new Set<number>();
+    const seen = new Set<string>();
     return results.reduce((s, r) => {
-      if (seen.has(r.numeroNp)) return s;
-      seen.add(r.numeroNp);
-      return s + (r.tax?.calculatedItems ?? []).reduce((si, i) => si + i.amount, 0);
+      const npItems = r.items ?? [];
+      let npTaxes = 0;
+      for (const item of npItems) {
+        if (item.tax?.tipo !== 'NAO_OPTANTE') continue;
+        const itemKey = item.id ? String(item.id) : `${r.numeroNp}-${item.value}`;
+        if (seen.has(itemKey)) continue;
+        seen.add(itemKey);
+        
+        npTaxes += (item.tax?.calculatedItems ?? []).reduce((si: number, i: {amount: number}) => si + i.amount, 0);
+      }
+      return s + npTaxes;
     }, 0);
   })();
   const mesLabel = MONTH_OPTIONS.find(m => m.value === mes)?.label ?? '';
@@ -320,7 +366,7 @@ export default function BuscaDarf() {
                   </thead>
                   <tbody>
                     {groups.map((group, gIdx) => (
-                      <>
+                      <React.Fragment key={`group-${group.codigoReceita || gIdx}`}>
                         {/* ── Cabeçalho do grupo (Código de Receita) ──────────── */}
                         <tr
                           key={`group-header-${gIdx}`}
@@ -369,63 +415,71 @@ export default function BuscaDarf() {
 
                         {/* ── Linhas do grupo ──────────────────────────────────── */}
                         {(() => {
-                          const seenNps = new Set<number>();
-                          return group.items.map((item) => {
-                            const isFirstOccurrence = !seenNps.has(item.numeroNp);
-                            seenNps.add(item.numeroNp);
-                            const hasItems = (item.tax?.calculatedItems?.length ?? 0) > 0;
+                          const seenItems = new Set<string>();
+                          return group.items.map(({ np, itemDto, meta }, index) => {
+                            const itemKey = itemDto.id ? String(itemDto.id) : `${np.numeroNp}-${index}`;
+                            const isFirstOccurrence = !seenItems.has(itemKey);
+                            seenItems.add(itemKey);
+                            const hasItems = meta.calculatedItems.length > 0;
 
                             return (
-                              <>
+                              <React.Fragment key={`np-frag-${np.id}-${itemDto.id ?? index}-${np.vinculation || 'no-vinc'}`}>
                                 <tr
-                                  key={`row-${item.id}`}
+                                  key={`row-${np.id}-${itemDto.id ?? index}`}
                                   className="border-b border-stone-800/80 hover:bg-stone-800/30 transition-colors"
                                 >
                                   <td className="px-3 py-2.5">
-                                    <span className="text-amber-400 font-bold">{item.numeroNp}</span>
+                                    <span className="text-amber-400 font-bold">{np.numeroNp}</span>
                                     {!isFirstOccurrence && (
                                       <span className="block text-[10px] text-stone-600 italic">+ PF</span>
                                     )}
                                   </td>
 
                                   <td className="px-3 py-2.5 text-gray-300 whitespace-nowrap">
-                                    {formatDate(item.dataLiquidacao)}
+                                    {formatDate(np.dataLiquidacao)}
                                   </td>
 
                                   <td className="px-3 py-2.5">
-                                    <span className="block text-gray-300 truncate max-w-[160px]" title={item.empresa.nome}>
-                                      {item.empresa.nome}
+                                    <span className="block text-gray-300 truncate max-w-[160px]" title={np.empresa.nome}>
+                                      {np.empresa.nome}
                                     </span>
                                     <span className="text-[10px] text-stone-500 font-mono">
-                                      {formatCNPJ(item.empresa.cnpj)}
+                                      {formatCNPJ(np.empresa.cnpj)}
                                     </span>
                                   </td>
 
-                                  <td className="px-3 py-2.5 text-gray-400">{item.docOrigin}</td>
-
-                                  <td className="px-3 py-2.5 text-right">
-                                    <span className="text-amber-300 font-bold">{formatCurrency(item.value)}</span>
+                                  <td className="px-3 py-2.5 text-gray-400">
+                                    {np.docOrigin}
+                                    {itemDto.description && (
+                                      <span className="block text-[10px] text-stone-500 italic mt-0.5">
+                                        Item: {itemDto.description}
+                                      </span>
+                                    )}
                                   </td>
 
                                   <td className="px-3 py-2.5 text-right">
-                                    <span className="text-amber-400 font-bold">{item.vinculation}</span>
+                                    <span className="text-amber-300 font-bold">{formatCurrency(itemDto.value)}</span>
+                                  </td>
+
+                                  <td className="px-3 py-2.5 text-right">
+                                    <span className="text-amber-400 font-bold">{np.vinculation}</span>
                                   </td>
 
                                   <td className="px-3 py-2.5 text-center">
-                                    <StatusBadge status={item.status} />
+                                    <StatusBadge status={np.status} />
                                   </td>
 
                                   <td className="px-3 py-2.5 text-center">
-                                    {item.tax?.codEfd != null ? (
-                                      <span className="text-gray-300 font-mono">{item.tax.codEfd}</span>
+                                    {meta.codEfd != null ? (
+                                      <span className="text-gray-300 font-mono">{meta.codEfd}</span>
                                     ) : <span className="text-stone-600">—</span>}
                                   </td>
 
                                   {/* Descrição da regra */}
                                   <td className="px-3 py-2.5 text-gray-400 max-w-[220px]">
-                                    {item.tax?.taxRuleDescription ? (
+                                    {meta.taxRuleDescription ? (
                                       <DescriptionCell
-                                        text={item.tax.taxRuleDescription}
+                                        text={meta.taxRuleDescription}
                                         className="text-gray-300 text-[11px]"
                                       />
                                     ) : (
@@ -436,16 +490,16 @@ export default function BuscaDarf() {
 
                                 {/* Impostos calculados — sempre visíveis, apenas na 1ª ocorrência da NP */}
                                 {hasItems && isFirstOccurrence && (
-                                  <tr key={`tax-${item.id}`} className="bg-stone-900/50 border-b border-stone-700">
+                                  <tr key={`tax-${np.id}-${itemDto.id ?? index}`} className="bg-stone-900/50 border-b border-stone-700">
                                     <td colSpan={COL_COUNT} className="px-8 py-3">
                                       <div className="max-w-lg">
                                         <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold mb-2">
                                           <span className="text-amber-500 mr-1">■</span>
-                                          Impostos Calculados — NP {item.numeroNp}
+                                          Impostos Calculados — NP {np.numeroNp} {itemDto.description ? `(Item: ${itemDto.description})` : ''}
                                         </p>
                                         <TaxItemsDisplay
-                                          items={item.tax!.calculatedItems!}
-                                          taxStatus={item.tax!.taxStatus}
+                                          items={meta.calculatedItems}
+                                          taxStatus={meta.taxStatus ?? undefined}
                                           compact
                                         />
                                       </div>
@@ -453,15 +507,15 @@ export default function BuscaDarf() {
                                   </tr>
                                 )}
                                 {hasItems && !isFirstOccurrence && (
-                                  <tr key={`tax-dup-${item.id}`} className="bg-stone-900/30 border-b border-stone-800">
+                                  <tr key={`tax-dup-${np.id}-${itemDto.id ?? index}`} className="bg-stone-900/30 border-b border-stone-800">
                                     <td colSpan={COL_COUNT} className="px-8 py-1.5">
                                       <span className="text-[10px] text-stone-600 italic">
-                                        ⚠ Impostos já contabilizados na primeira ocorrência da NP {item.numeroNp} (vinculada a múltiplos PF)
+                                        ⚠ Impostos já contabilizados na primeira ocorrência deste Item (NP {np.numeroNp} vinculada a múltiplos PF)
                                       </span>
                                     </td>
                                   </tr>
                                 )}
-                              </>
+                              </React.Fragment>
                             );
                           });
                         })()}
@@ -484,7 +538,7 @@ export default function BuscaDarf() {
                             )}
                           </td>
                         </tr>
-                      </>
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>

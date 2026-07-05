@@ -33,7 +33,7 @@ export default function PageShell({ children }: PageShellProps) {
     ].join(' ');
 
   return (
-    <div className="min-h-screen font-mono relative bg-military-950 text-gray-200">
+    <div className="min-h-screen font-sans relative bg-military-950 text-gray-200">
       <div className="brasao-bg fixed inset-0 z-0 pointer-events-none" />
       <div className="fixed inset-0 bg-black/50 z-0 pointer-events-none" />
 

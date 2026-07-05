@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import Button from '../../components/Button';
 import Input from '../../components/Input';
-import Alert from '../../components/Alert';
 import Select from '../../components/Select';
+import Alert from '../../components/Alert';
 import EditIconButton from '../../components/EditIconButton';
 import PaginationControls from '../../components/PaginationControls';
-import TaxAdjustmentPanel from '../../components/TaxAdjustmentPanel';
 import ConfirmSaveModal from '../../components/ConfirmSaveModal';
+import { NpItemEditor, itemToEditState, editStateToItem, DEFAULT_ITEM } from '../../components/NpItemEditor';
+import type { ItemEditState } from '../../components/NpItemEditor';
 import { findNpByNumeroEAno, getAllNp, updatePaymentNote, findEmpresaByCnpj } from '../../services/api';
-import type { PaymentNoteDto, OptanteStatus, TaxStatus } from '../../types';
+import type { PaymentNoteDto } from '../../types';
 import { toInputDate, formatCurrency, formatDate } from '../../lib/utils';
 import { SectionTitle, TableContainer, applyCnpjMask } from './Shared';
 import { useEntitySearch } from '../../hooks/useEntitySearch';
@@ -19,38 +20,26 @@ const NP_STATUS_STYLE: Record<PaymentNoteDto['status'], string> = {
   A_PAGAR:   'text-amber-400 bg-amber-900/30 border-amber-700/50',
 };
 
-const TAX_STATUS_LABEL: Record<TaxStatus, string> = {
-  CALCULATED: '✔ Calculado',
-  PENDING:    '⏳ Pendente',
-  EXEMPT:     '— Isento',
-};
+// ── Componente principal ──────────────────────────────────────────────────────
 
 export default function BuscaPaymentNote() {
   const [sNumero, setSNumero] = useState('');
   const [sAno, setSAno]       = useState('');
+  // Campos da NP
   const [numeroNp, setNumeroNp] = useState('');
   const [dataLiq, setDataLiq] = useState('');
   const [docOrigin, setDocOrigin] = useState('');
-  const [value, setValue] = useState('');
   const [status, setStatus] = useState<PaymentNoteDto['status']>('A_PAGAR');
   const [cnpj, setCnpj] = useState('');
   const [cnpjValid, setCnpjValid] = useState<boolean | null>(null);
   const [cnpjLoading, setCnpjLoading] = useState(false);
   const [cnpjError, setCnpjError] = useState<string | null>(null);
   const [empresaNome, setEmpresaNome] = useState('');
-  const [taxTipo, setTaxTipo] = useState<OptanteStatus>('OPTANTE');
-  const [codEfd, setCodEfd] = useState('');
-  const [datePayment, setDatePayment] = useState(''); // YYYY-MM-DD (input date)
-  // Ajuste manual de impostos
-  const [manualItems, setManualItems] = useState<import('../../types').TaxCalculatedItem[]>([]);
-  const [isManualAdjustment, setIsManualAdjustment] = useState(false);
-  // Modal de confirmação
+  const [datePayment, setDatePayment] = useState('');
+  // Itens editáveis
+  const [editItems, setEditItems] = useState<ItemEditState[]>([{ ...DEFAULT_ITEM }]);
+  // Modal
   const [confirmOpen, setConfirmOpen] = useState(false);
-
-  function handleTaxAdjustChange(items: import('../../types').TaxCalculatedItem[], manual: boolean) {
-    setManualItems(items);
-    setIsManualAdjustment(manual);
-  }
 
   const {
     loading: searching, error, setError,
@@ -74,30 +63,41 @@ export default function BuscaPaymentNote() {
     setNumeroNp(String(np.numeroNp));
     setDataLiq(toInputDate(np.dataLiquidacao));
     setDocOrigin(np.docOrigin);
-    setValue(String(np.value));
     setStatus(np.status);
     setCnpj(applyCnpjMask(np.empresa?.cnpj || ''));
     setEmpresaNome(np.empresa?.nome || '');
     setCnpjValid(true);
     setCnpjError(null);
-    setTaxTipo(np.tax?.tipo ?? 'OPTANTE');
-    setCodEfd(np.tax?.codEfd ? String(np.tax.codEfd) : '');
     setDatePayment(np.datePayment ? toInputDate(np.datePayment) : '');
-    // Pre-popula o painel de ajuste com os itens existentes (se houver)
-    const items = np.tax?.calculatedItems ?? [];
-    setManualItems(items.map(i => ({ ...i })));
-    setIsManualAdjustment(false); // sempre inicia no modo automático
+    // Popula os itens editáveis a partir da NP carregada
+    const items = np.items && np.items.length > 0
+      ? np.items.map(itemToEditState)
+      : [{ ...DEFAULT_ITEM }];
+    setEditItems(items);
     setEditing(true);
   };
 
-  // Abre o modal de confirmação antes de salvar
+  function updateItem(idx: number, next: ItemEditState) {
+    setEditItems(prev => prev.map((it, i) => i === idx ? next : it));
+  }
+
+  function removeItem(idx: number) {
+    setEditItems(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  function addItem() {
+    setEditItems(prev => [...prev, { ...DEFAULT_ITEM }]);
+  }
+
   const openConfirm = () => {
     if (!found) return;
     if (!cnpjValid) { setSaveError('Valide o CNPJ antes de salvar.'); return; }
+    if (editItems.some(it => !it.value || parseFloat(it.value) <= 0)) {
+      setSaveError('Todos os itens devem ter um valor maior que zero.'); return;
+    }
     setConfirmOpen(true);
   };
 
-  // Executado apenas após o usuário confirmar no modal
   const handleSaveConfirmed = () => {
     setConfirmOpen(false);
     if (!found) return;
@@ -106,20 +106,16 @@ export default function BuscaPaymentNote() {
       numeroNp: parseInt(numeroNp, 10),
       dataLiquidacao: dataLiq,
       docOrigin,
-      value: parseFloat(value),
       status,
       empresa: { nome: empresaNome, cnpj: cnpj.replace(/\D/g, '') },
-      tax: {
-        tipo: taxTipo,
-        codEfd: codEfd ? parseInt(codEfd, 10) : null,
-        ...(isManualAdjustment && manualItems.length > 0
-          ? { manualAdjustment: true, calculatedItems: manualItems }
-          : {}),
-      },
-      // datePayment: enviado somente se status for PAGA e a data estiver preenchida
+      items: editItems.map(editStateToItem),
       datePayment: status === 'PAGA' && datePayment ? datePayment : null,
     };
-    handleSaveRequest(() => updatePaymentNote(payload), 'Payment Note atualizada!', () => handleGetAllRequest(getAllNp));
+    handleSaveRequest(
+      () => updatePaymentNote(payload),
+      'Payment Note atualizada!',
+      () => handleGetAllRequest(getAllNp)
+    );
   };
 
   function handleCnpj(v: string) { setCnpj(applyCnpjMask(v)); setCnpjValid(null); setCnpjError(null); setEmpresaNome(''); }
@@ -135,14 +131,20 @@ export default function BuscaPaymentNote() {
     setCnpjLoading(false);
   }
 
+  const totalValorItens = editItems.reduce((s, it) => s + (parseFloat(it.value) || 0), 0);
+
   return (
     <div className="space-y-6">
+      {/* ── Busca ──────────────────────────────────────────────────────── */}
       <div className="glass-panel p-5">
         <SectionTitle>Buscar Payment Note por Nº e Ano</SectionTitle>
         <div className="flex flex-wrap items-end gap-3">
           <Input label="Nº NP" type="number" placeholder="2024001" value={sNumero}
             onChange={(e) => { setSNumero(e.target.value); setError(null); setAllResults([]); setShowAll(false); }}
-            onKeyDown={(e) => e.key === 'Enter' && (() => { if (!sNumero || !sAno) { setError('Informe Nº NP e Ano.'); return; } handleSearchRequest(() => findNpByNumeroEAno(parseInt(sNumero, 10), parseInt(sAno, 10)), handleEdit); })()}
+            onKeyDown={(e) => e.key === 'Enter' && (() => {
+              if (!sNumero || !sAno) { setError('Informe Nº NP e Ano.'); return; }
+              handleSearchRequest(() => findNpByNumeroEAno(parseInt(sNumero, 10), parseInt(sAno, 10)), handleEdit);
+            })()}
             className="w-full sm:w-36" />
           <Input label="Ano" type="number" placeholder="2024" value={sAno}
             onChange={(e) => { setSAno(e.target.value); setError(null); setAllResults([]); setShowAll(false); }}
@@ -151,45 +153,42 @@ export default function BuscaPaymentNote() {
             if (!sNumero || !sAno) { setError('Informe Nº NP e Ano.'); return; }
             handleSearchRequest(() => findNpByNumeroEAno(parseInt(sNumero, 10), parseInt(sAno, 10)), handleEdit);
           }}>🔍 Buscar</Button>
-          <Button variant="ghost" size="md" loading={searching} onClick={() => handleGetAllRequest(getAllNp)}>🔍 Buscar Todos</Button>
+          <Button variant="ghost" size="md" loading={searching} onClick={() => handleGetAllRequest(getAllNp)}>
+            🔍 Buscar Todos
+          </Button>
         </div>
       </div>
 
       {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
 
+      {/* ── Formulário de Edição ────────────────────────────────────────── */}
       {editing && found && (
         <div className="glass-panel p-5 animate-fadeIn space-y-6">
           <SectionTitle>Atualizar Payment Note</SectionTitle>
 
+          {/* Campos da NP */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-2xl">
             <Input label="Nº NP" type="number" value={numeroNp} onChange={e => setNumeroNp(e.target.value)} />
             <Input label="Data Liq." type="date" value={dataLiq} onChange={e => setDataLiq(e.target.value)} />
             <Input label="Doc. Origem" value={docOrigin} onChange={e => setDocOrigin(e.target.value)} />
-            <Input label="Valor (R$)" type="number" step="0.01" value={value} onChange={e => setValue(e.target.value)} />
             <Select label="Status" value={status} onChange={e => {
               const newStatus = e.target.value as PaymentNoteDto['status'];
               setStatus(newStatus);
-              // Limpa a data de pagamento se sair do status PAGA
               if (newStatus !== 'PAGA') setDatePayment('');
             }} options={[
               { value: 'A_PAGAR', label: 'A PAGAR' },
               { value: 'PAGA', label: 'PAGA' },
               { value: 'CANCELADA', label: 'CANCELADA' },
             ]} />
-            {/* Data de pagamento — só visível quando status === PAGA */}
             {status === 'PAGA' && (
               <div className="animate-fadeIn">
-                <Input
-                  label="Data de Pagamento"
-                  type="date"
-                  value={datePayment}
-                  onChange={e => setDatePayment(e.target.value)}
-                />
+                <Input label="Data de Pagamento" type="date" value={datePayment} onChange={e => setDatePayment(e.target.value)} />
                 <p className="text-xs text-amber-500/70 mt-1">Obrigatório quando status é PAGA.</p>
               </div>
             )}
           </div>
 
+          {/* Empresa */}
           <div>
             <SectionTitle>Empresa (Validação por CNPJ)</SectionTitle>
             <div className="max-w-sm space-y-2">
@@ -212,36 +211,44 @@ export default function BuscaPaymentNote() {
             </div>
           </div>
 
+          {/* Itens com tributação — editáveis */}
           <div>
-            <SectionTitle>Tributação</SectionTitle>
-            <div className="space-y-4 max-w-2xl">
-              <div className="w-full sm:w-48">
-                <Select label="Tipo de Tributação" value={taxTipo}
-                  onChange={e => setTaxTipo(e.target.value as OptanteStatus)} options={[
-                    { value: 'OPTANTE', label: 'OPTANTE' },
-                    { value: 'NAO_OPTANTE', label: 'NÃO OPTANTE' },
-                  ]} />
-              </div>
-              {taxTipo === 'NAO_OPTANTE' && (
-                <div className="animate-fadeIn">
-                  <Input label="Cód. EFD" type="number" placeholder="17001" value={codEfd}
-                    onChange={e => setCodEfd(e.target.value)} className="w-full sm:w-48" />
-                  <p className="text-stone-500 text-xs mt-1">Os impostos serão recalculados pelo backend após salvar.</p>
-                </div>
-              )}
-              {found.tax?.calculatedItems && found.tax.calculatedItems.length > 0 && (
-                <div className="animate-fadeIn">
-                  <TaxAdjustmentPanel
-                    items={found.tax.calculatedItems}
-                    onChange={handleTaxAdjustChange}
-                  />
-                </div>
-              )}
+            <div className="flex items-center justify-between mb-3">
+              <SectionTitle>
+                Itens e Tributação
+                {totalValorItens > 0 && (
+                  <span className="ml-2 text-amber-400 font-mono normal-case">
+                    — Total: {formatCurrency(totalValorItens)}
+                  </span>
+                )}
+              </SectionTitle>
+            </div>
+            <div className="space-y-3 max-w-3xl">
+              {editItems.map((item, idx) => (
+                <NpItemEditor
+                  key={idx}
+                  idx={idx}
+                  item={item}
+                  total={editItems.length}
+                  onChange={updateItem}
+                  onRemove={removeItem}
+                />
+              ))}
+              <button
+                type="button"
+                onClick={addItem}
+                className="w-full py-2 rounded-xl border border-dashed border-white/20 text-stone-500 hover:text-amber-400 hover:border-amber-500/40 text-xs uppercase tracking-widest transition-colors"
+              >
+                + Adicionar Item
+              </button>
             </div>
           </div>
 
+          {/* Ações */}
           <div className="flex flex-col sm:flex-row gap-4">
-            <Button onClick={openConfirm} loading={saving} disabled={cnpjValid === false || cnpjLoading}>Salvar Alterações</Button>
+            <Button onClick={openConfirm} loading={saving} disabled={cnpjValid === false || cnpjLoading}>
+              Salvar Alterações
+            </Button>
             <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
           </div>
           {saveError && <Alert variant="error" message={saveError} onClose={() => setSaveError(null)} />}
@@ -249,6 +256,7 @@ export default function BuscaPaymentNote() {
         </div>
       )}
 
+      {/* ── Tabela de resultados ────────────────────────────────────────── */}
       {showAll && !editing && allResults.length > 0 && (
         <>
           <PaginationControls currentPage={currentPage} totalPages={totalPages} totalElements={totalElements}
@@ -263,48 +271,38 @@ export default function BuscaPaymentNote() {
                   <th className="py-2 pr-4">Nº NP</th>
                   <th className="py-2 pr-4">Data Liq.</th>
                   <th className="py-2 pr-4">Empresa</th>
-                  <th className="py-2 pr-4">Valor</th>
+                  <th className="py-2 pr-4">Valor Total</th>
                   <th className="py-2 pr-4">Status</th>
-                  <th className="py-2 pr-4">Tributação</th>
+                  <th className="py-2 pr-4">Itens</th>
                   <th className="py-2 pr-4 w-8">✏️</th>
                 </tr>
               </thead>
               <tbody>
-                {allResults.map((np, i) => (
-                  <tr key={i} className="border-b border-stone-800 hover:bg-stone-800/30">
-                    <td className="py-2 pr-4 text-amber-300 font-mono">{np.numeroNp}</td>
-                    <td className="py-2 pr-4 text-gray-300 whitespace-nowrap">{formatDate(np.dataLiquidacao)}</td>
-                    <td className="py-2 pr-4 text-gray-300 text-xs">{np.empresa?.nome ?? '—'}</td>
-                    <td className="py-2 pr-4 text-gray-200 font-mono text-xs">{formatCurrency(np.value)}</td>
-                    <td className="py-2 pr-4">
-                      <div className="space-y-0.5">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider ${NP_STATUS_STYLE[np.status]}`}>
-                          {np.status.replace('_', ' ')}
-                        </span>
-                        {np.status === 'PAGA' && np.datePayment && (
-                          <div className="text-[10px] text-emerald-400/70 font-mono">
-                            pago em {formatDate(np.datePayment)}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-2 pr-4">
-                      {np.tax ? (
-                        <div className="text-xs space-y-0.5">
-                          <div className="text-stone-400">{np.tax.tipo}</div>
-                          {np.tax.taxStatus && (
-                            <div className="text-[10px] text-stone-500">
-                              {TAX_STATUS_LABEL[np.tax.taxStatus]}
-                            </div>
+                {allResults.map((np, i) => {
+                  const totalVal = np.value ?? np.items?.reduce((s, it) => s + it.value, 0) ?? 0;
+                  return (
+                    <tr key={i} className="border-b border-stone-800 hover:bg-stone-800/30">
+                      <td className="py-2 pr-4 text-amber-300 font-mono">{np.numeroNp}</td>
+                      <td className="py-2 pr-4 text-gray-300 whitespace-nowrap">{formatDate(np.dataLiquidacao)}</td>
+                      <td className="py-2 pr-4 text-gray-300 text-xs">{np.empresa?.nome ?? '—'}</td>
+                      <td className="py-2 pr-4 text-gray-200 font-mono text-xs">{formatCurrency(totalVal)}</td>
+                      <td className="py-2 pr-4">
+                        <div className="space-y-0.5">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider ${NP_STATUS_STYLE[np.status]}`}>
+                            {np.status.replace('_', ' ')}
+                          </span>
+                          {np.status === 'PAGA' && np.datePayment && (
+                            <div className="text-[10px] text-emerald-400/70 font-mono">pago em {formatDate(np.datePayment)}</div>
                           )}
                         </div>
-                      ) : <span className="text-stone-600 text-xs">—</span>}
-                    </td>
-                    <td className="py-2 pr-4 w-8">
-                      <EditIconButton onClick={() => handleEdit(np)} />
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="py-2 pr-4 text-stone-500 text-xs">{np.items?.length ?? 0} item(s)</td>
+                      <td className="py-2 pr-4 w-8">
+                        <EditIconButton onClick={() => handleEdit(np)} />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </TableContainer>
@@ -319,7 +317,7 @@ export default function BuscaPaymentNote() {
       <ConfirmSaveModal
         open={confirmOpen}
         title="Confirmar Alterações na Payment Note"
-        warning="Atenção: Ao salvar, o backend recalculará os impostos automaticamente a partir do Código EFD, a menos que o Ajuste Manual esteja ativado."
+        warning="Ao salvar, o backend recalculará os impostos automaticamente a partir do Código EFD, a menos que o Ajuste Manual esteja ativado."
         description="Deseja mesmo atualizar as informações desta Nota de Pagamento?"
         onConfirm={handleSaveConfirmed}
         onCancel={() => setConfirmOpen(false)}

@@ -154,6 +154,13 @@ export default function BuscaEmpresa() {
           />
         </>
       )}
+
+      {!found && !showAll && !loading && !error && (
+        <div className="flex flex-col items-center py-12 text-stone-600 gap-2 animate-fadeIn">
+          <span className="text-3xl">🔍</span>
+          <p className="text-xs uppercase tracking-widest">Informe o CNPJ acima e clique em Buscar.</p>
+        </div>
+      )}
     </div>
   );
 }

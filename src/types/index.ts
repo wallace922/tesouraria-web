@@ -25,6 +25,7 @@ export interface EmpresaDto {
 
 // ── Financial Planning ────────────────────────────────────────────────────────
 
+/** Corresponde a FinancialPlanningBasicDto no backend. */
 export interface FinancialPlanningDto {
   id?: number;
   numero: number;
@@ -47,7 +48,7 @@ export interface TaxCalculatedItem {
 }
 
 /**
- * TaxDto — estrutura da tributação de uma PaymentNote.
+ * TaxDto — estrutura da tributação de um PaymentNoteItem.
  *
  * No POST/PUT padrão, apenas `tipo` e `codEfd` são enviados e o backend
  * calcula os impostos automaticamente.
@@ -78,17 +79,41 @@ export interface TaxDto {
   manualAdjustment?: boolean;
 }
 
+// ── Payment Note Item ─────────────────────────────────────────────────────────
+
+/**
+ * PaymentNoteItemDto — item de uma Nota de Pagamento.
+ * Cada item tem seu próprio valor, descrição e tributação.
+ * Corresponde a PaymentNoteItemDto no backend.
+ */
+export interface PaymentNoteItemDto {
+  id?: number;
+  description?: string;
+  value: number;
+  tax: TaxDto;
+  manualAdjustment?: boolean;
+}
+
 // ── Payment Note ──────────────────────────────────────────────────────────────
 
+/**
+ * PaymentNoteBasicDto — corresponde a PaymentNoteBasicDto no backend.
+ *
+ * ATENÇÃO: a partir do refactoring do backend, o campo `tax` foi removido
+ * do nível da NP e agora está em cada `PaymentNoteItemDto`.
+ * O campo `value` na NP é calculado pelo backend como soma dos itens.
+ */
 export interface PaymentNoteDto {
   id?: number;
   numeroNp: number;
   dataLiquidacao: string;
   empresa: EmpresaDto;
   docOrigin: string;
-  value: number;
+  /** Valor total calculado pelo backend como soma dos itens. Somente leitura. */
+  value?: number;
   status: 'CANCELADA' | 'PAGA' | 'A_PAGAR';
-  tax: TaxDto | null;
+  /** Lista de itens — cada um com seu próprio valor e tributação. */
+  items: PaymentNoteItemDto[];
   /**
    * Data de pagamento efetivo — somente preenchido quando status === 'PAGA'.
    * O backend zera automaticamente se o status mudar para outro valor.
@@ -99,6 +124,7 @@ export interface PaymentNoteDto {
 
 // ── PaymentNote + Empenho (vínculo principal) ─────────────────────────────────
 
+/** Corresponde a PaymentNoteEmpenhoBasicDto no backend. */
 export interface PaymentNoteEmpenhoDto {
   id?: number;
   paymentNoteBasicDto: PaymentNoteDto;
@@ -107,11 +133,12 @@ export interface PaymentNoteEmpenhoDto {
   value: number;
 }
 
-// ── Novos DTOs de relatório ───────────────────────────────────────────────────
+// ── PaymentNote para relatório por mês/ano ────────────────────────────────────
 
 /**
  * PaymentNoteVinculacaoDto — retornado por GET /API/PaymentEmpenho/por-mes-ano
- * Contém todos os campos de PaymentNoteDto mais o campo `vinculation` do PF.
+ * Contém os campos principais da NP mais o campo `vinculation` do PF e items[].
+ * Corresponde a PaymentNoteVinculacaoDto no backend.
  */
 export interface PaymentNoteVinculacaoDto {
   id: number;
@@ -122,7 +149,8 @@ export interface PaymentNoteVinculacaoDto {
   value: number;
   status: 'CANCELADA' | 'PAGA' | 'A_PAGAR';
   vinculation: number;
-  tax: TaxDto | null;
+  /** Items com tributação por item — substitui o campo tax do nível da NP. */
+  items?: PaymentNoteItemDto[];
 }
 
 /**
@@ -153,11 +181,10 @@ export interface TaxRuleItemDto {
 
 /**
  * TaxRule — regra de tributação cadastrada no sistema, versionada por datas de vigência.
- * Associada a PaymentNote via codEfd.
+ * Associada a PaymentNoteItem via codEfd.
  *
  * - POST /API/TaxRule → cria nova versão; encerra automaticamente a versão anterior em aberto.
  * - PUT /API/TaxRule/{id} → edita detalhes menores (description, items) sem criar nova versão.
- * - DELETE removido — regras são encerradas via dataFimVigencia, não deletadas.
  */
 export interface TaxRuleDto {
   id?: number;

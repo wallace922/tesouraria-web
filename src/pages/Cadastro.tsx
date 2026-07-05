@@ -8,6 +8,8 @@ import Alert from '../components/Alert';
 import TaxAdjustmentPanel from '../components/TaxAdjustmentPanel';
 import ConfirmSaveModal from '../components/ConfirmSaveModal';
 import TaxRuleItemEditor from '../components/TaxRuleItemEditor';
+import { NpItemEditor, editStateToItem, DEFAULT_ITEM } from '../components/NpItemEditor';
+import type { ItemEditState } from '../components/NpItemEditor';
 import QuickFormEmpresa from './CadastroTabs/QuickFormEmpresa';
 import QuickFormEmpenho from './CadastroTabs/QuickFormEmpenho';
 import VinculoBlock from './CadastroTabs/VinculoBlock';
@@ -26,17 +28,16 @@ import type {
   PaymentNoteDto,
   TaxRuleDto,
   TaxRuleItemDto,
-  OptanteStatus,
 } from '../types';
-import { formatCNPJ, formatCurrency, formatDate, parseBRCurrency, applyDateMask } from '../lib/utils';
+import { formatCNPJ, formatCurrency, formatDate, applyDateMask } from '../lib/utils';
 
 // ── Tabs config ───────────────────────────────────────────────────────────────
 
 const TABS: Tab[] = [
   { key: 'empresa',           label: 'Empresa',            icon: '🏢' },
   { key: 'empenho',           label: 'Empenho',            icon: '📄' },
-  { key: 'financialPlanning', label: 'Financial Planning', icon: '📊' },
-  { key: 'paymentNote',       label: 'Payment Note',       icon: '💰' },
+  { key: 'financialPlanning', label: 'Plan. Financeiro',   icon: '📊' },
+  { key: 'paymentNote',       label: 'Nota de Pagamento',  icon: '💰' },
   { key: 'taxRule',           label: 'Regra de Imposto',   icon: '📋' },
 ];
 
@@ -49,7 +50,7 @@ function PanelDivider() {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] uppercase tracking-widest text-stone-500 font-bold mb-4">
+    <p className="text-xs uppercase tracking-widest text-stone-500 font-bold mb-4">
       <span className="text-amber-500 mr-2">▶</span>{children}
     </p>
   );
@@ -275,28 +276,28 @@ function FormPaymentNote() {
   const [numeroNp, setNumeroNp] = useState('');
   const [dataLiq, setDataLiq] = useState('');
   const [docOrigin, setDocOrigin] = useState('');
-  const [value, setValue] = useState('');
   const [status, setStatus] = useState<PaymentNoteDto['status']>('A_PAGAR');
   const [cnpj, setCnpj] = useState('');
   const [cnpjValid, setCnpjValid] = useState<boolean | null>(null);
   const [cnpjLoading, setCnpjLoading] = useState(false);
   const [cnpjError, setCnpjError] = useState<string | null>(null);
   const [empresaNome, setEmpresaNome] = useState('');
-  // Tributação — apenas tipo e codEfd (backend calcula os itens)
-  const [taxTipo, setTaxTipo] = useState<OptanteStatus>('OPTANTE');
-  const [codEfd, setCodEfd] = useState('');
-  const [datePayment, setDatePayment] = useState(''); // YYYY-MM-DD (input date)
+  const [datePayment, setDatePayment] = useState('');
+  // Lista de itens com valor e tributação individualmente
+  const [npItems, setNpItems] = useState<ItemEditState[]>([{ ...DEFAULT_ITEM }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<PaymentNoteDto | null>(null);
-  // Ajuste manual de impostos (apenas para modo NAO_OPTANTE c/ calculatedItems)
-  const [manualItems, setManualItems] = useState<import('../types').TaxCalculatedItem[]>([]);
-  const [isManualAdjustment, setIsManualAdjustment] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  function handleTaxAdjustChange(items: import('../types').TaxCalculatedItem[], manual: boolean) {
-    setManualItems(items);
-    setIsManualAdjustment(manual);
+  function updateItem(idx: number, next: ItemEditState) {
+    setNpItems(prev => prev.map((it, i) => i === idx ? next : it));
+  }
+  function removeItem(idx: number) {
+    setNpItems(prev => prev.filter((_, i) => i !== idx));
+  }
+  function addItem() {
+    setNpItems(prev => [...prev, { ...DEFAULT_ITEM }]);
   }
 
   function handleCnpj(v: string) { setCnpj(applyCnpjMask(v)); setCnpjValid(null); setCnpjError(null); setEmpresaNome(''); }
@@ -313,46 +314,39 @@ function FormPaymentNote() {
 
   function openConfirm() {
     setError(null); setSuccess(null);
-    if (!numeroNp || !dataLiq || !docOrigin || !value) { setError('Preencha todos os campos obrigatórios.'); return; }
+    if (!numeroNp || !dataLiq || !docOrigin) { setError('Preencha todos os campos obrigatórios: Nº NP, Data e Doc. Origem.'); return; }
     const dateRegex = /^\d{2}\/\d{2}\/\d{4}$/;
     if (!dateRegex.test(dataLiq)) { setError('Data Liquidação inválida. Use o formato DD/MM/YYYY.'); return; }
-    if (!cnpjValid) { setError('Valide o CNPJ antes de salvar (campo deve estar com empresa encontrada).'); return; }
-    const parsedValue = parseBRCurrency(value);
-    if (isNaN(parsedValue)) { setError('Valor inválido. Use o formato numérico (ex: 1.500,30 ou 1500.30).'); return; }
+    if (!cnpjValid) { setError('Valide o CNPJ antes de salvar.'); return; }
+    if (npItems.length === 0) { setError('Adicione pelo menos um item.'); return; }
+    if (npItems.some(it => !it.value || parseFloat(it.value) <= 0)) {
+      setError('Todos os itens devem ter um valor maior que zero.'); return;
+    }
     setConfirmOpen(true);
   }
 
   async function handleSaveConfirmed() {
     setConfirmOpen(false);
     setError(null); setSuccess(null);
-    const parsedValue = parseBRCurrency(value);
     setLoading(true);
 
     const dto: PaymentNoteDto = {
       numeroNp: parseInt(numeroNp, 10),
-      dataLiquidacao: dataLiq,   // já está DD/MM/YYYY via applyDateMask
+      dataLiquidacao: dataLiq,
       empresa: { nome: empresaNome, cnpj: cnpj.replace(/\D/g, '') },
       docOrigin: docOrigin.trim(),
-      value: parsedValue,
       status,
-      tax: {
-        tipo: taxTipo,
-        codEfd: codEfd ? parseInt(codEfd, 10) : null,
-        ...(isManualAdjustment && manualItems.length > 0
-          ? { manualAdjustment: true, calculatedItems: manualItems }
-          : {}),
-      },
-      // datePayment só é aceito pelo backend quando status === 'PAGA'
+      items: npItems.map(editStateToItem),
       datePayment: status === 'PAGA' && datePayment ? datePayment : null,
     };
 
     const result = await savePaymentNote(dto);
     if (result.data) {
       setSuccess(result.data);
-      setNumeroNp(''); setDataLiq(''); setDocOrigin(''); setValue('');
+      setNumeroNp(''); setDataLiq(''); setDocOrigin('');
       setCnpj(''); setCnpjValid(null); setEmpresaNome('');
-      setTaxTipo('OPTANTE'); setCodEfd(''); setStatus('A_PAGAR'); setDatePayment('');
-      setManualItems([]); setIsManualAdjustment(false);
+      setStatus('A_PAGAR'); setDatePayment('');
+      setNpItems([{ ...DEFAULT_ITEM }]);
     } else { setError(result.errorMessage ?? 'Erro ao salvar Payment Note.'); }
     setLoading(false);
   }
@@ -378,25 +372,15 @@ function FormPaymentNote() {
                 maxLength={10}
               />
               <Input label="Doc. Origem" placeholder="DOC-001" value={docOrigin} onChange={(e) => setDocOrigin(e.target.value)} />
-              <Input
-                label="Valor (R$)"
-                type="text"
-                inputMode="decimal"
-                placeholder="Ex: 1.500,30"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-              />
               <Select label="Status" value={status} onChange={e => {
                 const newStatus = e.target.value as PaymentNoteDto['status'];
                 setStatus(newStatus);
-                // Limpa a data de pagamento se sair do status PAGA
                 if (newStatus !== 'PAGA') setDatePayment('');
               }} options={[
                 { value: 'A_PAGAR', label: 'A PAGAR' },
                 { value: 'PAGA', label: 'PAGA' },
                 { value: 'CANCELADA', label: 'CANCELADA' },
               ]} />
-              {/* Data de pagamento — só visível quando status === PAGA */}
               {status === 'PAGA' && (
                 <div className="animate-fadeIn">
                   <Input
@@ -434,32 +418,34 @@ function FormPaymentNote() {
           </div>
 
           <div>
-            <SectionTitle>Tributação</SectionTitle>
-            <div className="space-y-4">
-              <div className="w-full sm:w-48">
-                <Select label="Tipo de Tributação" value={taxTipo} onChange={e => setTaxTipo(e.target.value as OptanteStatus)} options={[
-                  { value: 'OPTANTE', label: 'OPTANTE' },
-                  { value: 'NAO_OPTANTE', label: 'NÃO OPTANTE' },
-                ]} />
-              </div>
-              {taxTipo === 'NAO_OPTANTE' && (
-                <div className="animate-fadeIn">
-                  <Input label="Cód. EFD" type="number" placeholder="17001" value={codEfd}
-                    onChange={(e) => setCodEfd(e.target.value)} className="w-full sm:w-48" />
-                  <p className="text-stone-500 text-xs mt-1">
-                    O backend calculará os impostos automaticamente com base na Regra de Imposto do Cód. EFD.
-                  </p>
-                </div>
-              )}
-              {/* Painel de ajuste manual — aparece apenas quando o usuário ativa manualmente */}
-              {manualItems.length > 0 && (
-                <div className="animate-fadeIn">
-                  <TaxAdjustmentPanel
-                    items={manualItems}
-                    onChange={handleTaxAdjustChange}
-                  />
-                </div>
-              )}
+            <div className="flex items-center justify-between mb-3">
+              <SectionTitle>
+                Itens e Tributação
+                {npItems.reduce((s, it) => s + (parseFloat(it.value) || 0), 0) > 0 && (
+                  <span className="ml-2 text-amber-400 font-mono normal-case text-sm">
+                    — Total: {formatCurrency(npItems.reduce((s, it) => s + (parseFloat(it.value) || 0), 0))}
+                  </span>
+                )}
+              </SectionTitle>
+            </div>
+            <div className="space-y-3">
+              {npItems.map((item, idx) => (
+                <NpItemEditor
+                  key={idx}
+                  idx={idx}
+                  item={item}
+                  total={npItems.length}
+                  onChange={updateItem}
+                  onRemove={removeItem}
+                />
+              ))}
+              <button
+                type="button"
+                onClick={addItem}
+                className="w-full py-2 rounded-xl border border-dashed border-white/20 text-stone-500 hover:text-amber-400 hover:border-amber-500/40 text-xs uppercase tracking-widest transition-colors"
+              >
+                + Adicionar Item
+              </button>
             </div>
           </div>
 
@@ -479,23 +465,27 @@ function FormPaymentNote() {
                 <Field label="Empresa" value={d.empresa.nome} />
                 <Field label="CNPJ" value={formatCNPJ(d.empresa.cnpj)} />
                 <Field label="Doc. Origem" value={d.docOrigin} />
-                <Field label="Valor" value={formatCurrency(d.value)} />
+                <Field label="Valor" value={formatCurrency(d.value ?? d.items?.reduce((s,it)=>s+it.value,0) ?? 0)} />
                 <Field label="Status" value={d.status} />
                 {d.status === 'PAGA' && d.datePayment && (
                   <Field label="Data de Pagamento" value={formatDate(d.datePayment)} />
                 )}
-                <Field label="Tributação" value={d.tax?.tipo ?? '—'} />
-                {d.tax?.tipo === 'NAO_OPTANTE' && d.tax.codEfd && (
-                  <Field label="Cód. EFD" value={d.tax.codEfd} />
-                )}
-                {d.tax?.calculatedItems && d.tax.calculatedItems.length > 0 && (
-                  <div className="mt-4">
-                    <TaxAdjustmentPanel
-                      items={d.tax.calculatedItems}
-                      onChange={handleTaxAdjustChange}
-                      compact
-                    />
-                  </div>
+                {d.items && d.items.length > 0 && (
+                  <>
+                    <Field label="Tributação" value={d.items[0].tax?.tipo ?? '—'} />
+                    {d.items[0].tax?.tipo === 'NAO_OPTANTE' && d.items[0].tax.codEfd && (
+                      <Field label="Cód. EFD" value={d.items[0].tax.codEfd} />
+                    )}
+                    {d.items[0].tax?.calculatedItems && d.items[0].tax.calculatedItems.length > 0 && (
+                      <div className="mt-4">
+                        <TaxAdjustmentPanel
+                          items={d.items[0].tax.calculatedItems}
+                          onChange={() => {}}
+                          compact
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )} />
@@ -605,26 +595,18 @@ function FormTaxRule() {
         <div>
           <SectionTitle>Vigência</SectionTitle>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl">
+            <Input
+              label="Início de Vigência *"
+              type="date"
+              value={inicioVigencia}
+              onChange={e => setInicioVigencia(e.target.value)}
+            />
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">
-                Início de Vigência <span className="text-amber-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={inicioVigencia}
-                onChange={e => setInicioVigencia(e.target.value)}
-                className="rounded-lg border border-white/10 bg-black/40 text-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-amber-500/60"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">
-                Fim de Vigência <span className="text-stone-600 ml-1">(opcional)</span>
-              </label>
-              <input
+              <Input
+                label="Fim de Vigência (opcional)"
                 type="date"
                 value={fimVigencia}
                 onChange={e => setFimVigencia(e.target.value)}
-                className="rounded-lg border border-white/10 bg-black/40 text-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-amber-500/60"
               />
               <p className="text-[10px] text-stone-600">Deixe em branco se não há previsão de encerramento.</p>
             </div>

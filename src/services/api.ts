@@ -8,6 +8,7 @@ import type {
   TaxRuleDto,
   PaymentNoteVinculacaoDto,
   PaymentNoteEmpenhoBasicDto,
+  PaymentNoteItemDto,
 } from '../types';
 import { formatDate } from '../lib/utils';
 
@@ -33,7 +34,10 @@ function handleError<T>(error: unknown): ApiResult<T> {
       return { data: null, status: 404, errorMessage: 'Registro não encontrado.' };
     }
     if (status === 400) {
-      return { data: null, status: 400, errorMessage: 'Dados inválidos. Verifique os campos e tente novamente.' };
+      // Tenta extrair mensagem de validação do backend
+      const msg = error.response?.data?.message ?? error.response?.data ?? null;
+      const detail = typeof msg === 'string' ? msg : 'Dados inválidos. Verifique os campos e tente novamente.';
+      return { data: null, status: 400, errorMessage: detail };
     }
     if (status !== null && status >= 500) {
       return { data: null, status, errorMessage: 'Falha na comunicação com o servidor. Tente mais tarde.' };
@@ -56,6 +60,36 @@ export interface PageDto<T> {
 }
 
 export type PaginatedResponse<T> = PageDto<T>;
+
+// ── Helpers internos ─────────────────────────────────────────────────────────
+
+/**
+ * Serializa um item de PaymentNote para envio ao backend.
+ * Preserva somente os campos esperados pelo PaymentNoteItemDto.
+ */
+function serializeItem(item: PaymentNoteItemDto) {
+  const taxPayload = item.tax
+    ? item.tax.manualAdjustment
+      ? {
+          tipo: item.tax.tipo,
+          codEfd: item.tax.codEfd,
+          manualAdjustment: true,
+          calculatedItems: item.tax.calculatedItems ?? [],
+        }
+      : {
+          tipo: item.tax.tipo,
+          codEfd: item.tax.codEfd,
+        }
+    : null;
+
+  return {
+    ...(item.id !== undefined ? { id: item.id } : {}),
+    description: item.description ?? '',
+    value: item.value,
+    tax: taxPayload,
+    manualAdjustment: item.manualAdjustment ?? false,
+  };
+}
 
 // ── PaymentNoteEmpenho ────────────────────────────────────────────────────────
 
@@ -176,22 +210,20 @@ export async function getAllNp(
   } catch (e) { return handleError(e); }
 }
 
+/**
+ * POST /API/Np
+ * Cria uma nova PaymentNote com items[].
+ * Cada item contém seu próprio value e tax.
+ */
 export async function savePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<PaymentNoteDto>> {
   try {
-    const taxPayload = dto.tax
-      ? dto.tax.manualAdjustment
-        ? { tipo: dto.tax.tipo, codEfd: dto.tax.codEfd, manualAdjustment: true, calculatedItems: dto.tax.calculatedItems ?? [] }
-        : { tipo: dto.tax.tipo, codEfd: dto.tax.codEfd }
-      : null;
-
     const payload = {
       numeroNp: dto.numeroNp,
       dataLiquidacao: formatDate(dto.dataLiquidacao),
       empresa: { cnpj: dto.empresa.cnpj },
       docOrigin: dto.docOrigin,
-      value: dto.value,
       status: dto.status,
-      tax: taxPayload,
+      items: (dto.items ?? []).map(serializeItem),
       // datePayment só é aceito pelo backend quando status === 'PAGA'
       ...(dto.status === 'PAGA' && dto.datePayment
         ? { datePayment: formatDate(dto.datePayment) }
@@ -202,23 +234,21 @@ export async function savePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<Pa
   } catch (e) { return handleError(e); }
 }
 
+/**
+ * PUT /API/Np
+ * Atualiza uma PaymentNote existente com items[].
+ * Preserva IDs dos itens existentes para não criar duplicatas.
+ */
 export async function updatePaymentNote(dto: PaymentNoteDto): Promise<ApiResult<PaymentNoteDto>> {
   try {
-    const taxPayload = dto.tax
-      ? dto.tax.manualAdjustment
-        ? { tipo: dto.tax.tipo, codEfd: dto.tax.codEfd, manualAdjustment: true, calculatedItems: dto.tax.calculatedItems ?? [] }
-        : { tipo: dto.tax.tipo, codEfd: dto.tax.codEfd }
-      : null;
-
     const payload = {
       id: dto.id,
       numeroNp: dto.numeroNp,
       dataLiquidacao: formatDate(dto.dataLiquidacao),
       empresa: { cnpj: dto.empresa.cnpj },
       docOrigin: dto.docOrigin,
-      value: dto.value,
       status: dto.status,
-      tax: taxPayload,
+      items: (dto.items ?? []).map(serializeItem),
       // datePayment só é aceito pelo backend quando status === 'PAGA'
       ...(dto.status === 'PAGA' && dto.datePayment
         ? { datePayment: formatDate(dto.datePayment) }
@@ -399,4 +429,3 @@ export async function updateTaxRule(
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }
-

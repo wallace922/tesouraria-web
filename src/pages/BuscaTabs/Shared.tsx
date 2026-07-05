@@ -8,11 +8,13 @@ export function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function ReadField({ label, value }: { label: string; value: string | number }) {
+export function ReadField({ label, value, highlight = false }: { label: string; value: string | number; highlight?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
       <label className="text-xs font-semibold uppercase tracking-widest text-stone-500">{label}</label>
-      <div className="bg-stone-950 border border-white/10 text-amber-300 font-bold text-sm rounded-md px-3 py-2 min-h-[2.25rem]">
+      <div className={`bg-stone-950 border border-white/10 text-sm rounded-md px-3 py-2 min-h-[2.25rem] ${
+        highlight ? 'text-amber-300 font-bold' : 'text-gray-200 font-normal'
+      }`}>
         {value !== '' && value !== undefined ? value : <span className="text-stone-600">—</span>}
       </div>
     </div>

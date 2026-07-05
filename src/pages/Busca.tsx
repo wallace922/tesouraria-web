@@ -14,8 +14,8 @@ import BuscaDarf from './BuscaTabs/BuscaDarf';
 const TABS: Tab[] = [
   { key: 'empresa',           label: 'Empresa',            icon: '🏢' },
   { key: 'empenho',           label: 'Empenho',            icon: '📄' },
-  { key: 'financialPlanning', label: 'Financial Planning', icon: '📊' },
-  { key: 'paymentNote',       label: 'Payment Note',       icon: '💰' },
+  { key: 'financialPlanning', label: 'Plan. Financeiro',   icon: '📊' },
+  { key: 'paymentNote',       label: 'Nota de Pagamento',  icon: '💰' },
   { key: 'taxRule',           label: 'Regra de Imposto',   icon: '📋' },
   { key: 'darf',              label: 'Darf',               icon: '🧾' },
 ];
