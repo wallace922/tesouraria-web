@@ -40,6 +40,7 @@ interface EmpresaGroup {
   nome: string;
   rows: NpRow[];
   totalBruto: number;
+  totalBaseCalculo: number;
   totalIr: number;
   totalCsll: number;
   totalCofins: number;
@@ -54,6 +55,7 @@ interface CodigoGroup {
   codEfd: number | null;
   empresas: EmpresaGroup[];
   totalBruto: number;
+  totalBaseCalculo: number;
   totalImpostos: number;
   qtdNps: number;
 }
@@ -106,9 +108,10 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
     let codNps = 0;
 
     for (const [cnpj, emp] of cod.empresaMap) {
-      let totalBruto = 0, totalIr = 0, totalCsll = 0, totalCofins = 0, totalPis = 0, totalDarf = 0;
+      let totalBruto = 0, totalBaseCalculo = 0, totalIr = 0, totalCsll = 0, totalCofins = 0, totalPis = 0, totalDarf = 0;
       for (const row of emp.rows) {
-        totalBruto += row.item.value;
+        totalBruto      += row.np.value;
+        totalBaseCalculo += row.item.value;
         totalIr     += getCalc(row.calc, 'IR');
         totalCsll   += getCalc(row.calc, 'CSLL');
         totalCofins += getCalc(row.calc, 'COFINS');
@@ -116,7 +119,7 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
         totalDarf   += getCalc(row.calc, 'DARF');
       }
       const totalRetAgr = totalCsll + totalCofins + totalPis;
-      empresas.push({ cnpj, nome: emp.nome, rows: emp.rows, totalBruto, totalIr, totalCsll, totalCofins, totalPis, totalDarf, totalRetAgr });
+      empresas.push({ cnpj, nome: emp.nome, rows: emp.rows, totalBruto, totalBaseCalculo, totalIr, totalCsll, totalCofins, totalPis, totalDarf, totalRetAgr });
       codTotalBruto += totalBruto;
       codTotalImpostos += totalIr + totalCsll + totalCofins + totalPis;
       codNps += emp.rows.length;
@@ -128,6 +131,7 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
       codEfd: cod.codEfd,
       empresas,
       totalBruto: codTotalBruto,
+      totalBaseCalculo: empresas.reduce((s, e) => s + e.totalBaseCalculo, 0),
       totalImpostos: codTotalImpostos,
       qtdNps: codNps,
     });
@@ -152,7 +156,8 @@ function GroupTable({ g, expanded }: { g: CodigoGroup; expanded: boolean }) {
   const hasRetAgr = g.empresas.some(e => e.totalRetAgr > 0);
 
   // Totais do GRUPO INTEIRO (todas as empresas somadas)
-  const grpBruto  = g.totalBruto;
+  const grpBruto       = g.totalBruto;
+  const grpBaseCalculo = g.totalBaseCalculo;
   const grpDarf   = g.empresas.reduce((s, e) => s + e.totalIr + e.totalCsll + e.totalCofins + e.totalPis, 0);
   const grpIr     = g.empresas.reduce((s, e) => s + e.totalIr, 0);
   const grpCsll   = g.empresas.reduce((s, e) => s + e.totalCsll, 0);
@@ -162,8 +167,8 @@ function GroupTable({ g, expanded }: { g: CodigoGroup; expanded: boolean }) {
 
   const thCls = 'px-2 py-1.5 text-left text-[9px] uppercase tracking-widest text-stone-500 font-bold whitespace-nowrap';
   const tdCls = 'px-2 py-2 text-xs whitespace-nowrap';
-  // 5 colunas de identificação + 3 fixas numéricas + impostos dinâmicos
-  const ID_COLS = 5; // favorecido, empresa, nº np, vinculação, doc.orig
+  // 6 colunas de identificação + 3 fixas numéricas + impostos dinâmicos
+  const ID_COLS = 6; // favorecido, empresa, nº np, vinculação, doc.orig, cód. efd
   const NUM_COLS = 3 + (hasIr?1:0) + (hasCsll?1:0) + (hasCofins?1:0) + (hasPis?1:0) + (hasRetAgr?1:0);
   const totalCols = ID_COLS + NUM_COLS;
 
@@ -177,6 +182,7 @@ function GroupTable({ g, expanded }: { g: CodigoGroup; expanded: boolean }) {
             <th className={thCls}>Nº NP</th>
             <th className={thCls}>Vinculação</th>
             <th className={thCls}>Doc. Orig.</th>
+            <th className={thCls}>Cód. EFD</th>
             <th className={`${thCls} text-right`}>Val. Bruto</th>
             <th className={`${thCls} text-right`}>Base Cálc.</th>
             <th className={`${thCls} text-right`}>DARF</th>
@@ -213,7 +219,8 @@ function GroupTable({ g, expanded }: { g: CodigoGroup; expanded: boolean }) {
                         <td className={`${tdCls} text-amber-400 font-bold`}>NP {row.np.numeroNp}</td>
                         <td className={`${tdCls} text-amber-300`}>{row.np.vinculation}</td>
                         <td className={`${tdCls} text-gray-400`}>{row.np.docOrigin}</td>
-                        <td className={`${tdCls} text-right text-gray-200`}>{formatCurrency(row.item.value)}</td>
+                        <td className={`${tdCls} text-stone-400 font-mono`}>{row.item.tax?.codEfd ?? '—'}</td>
+                        <td className={`${tdCls} text-right text-gray-200`}>{formatCurrency(row.np.value)}</td>
                         <td className={`${tdCls} text-right text-gray-200`}>{formatCurrency(row.item.value)}</td>
                         <td className={`${tdCls} text-right`}><Val v={darfRow} className="text-amber-300 font-bold" /></td>
                         {hasIr     && <td className={`${tdCls} text-right`}><Val v={ir} /></td>}
@@ -232,6 +239,7 @@ function GroupTable({ g, expanded }: { g: CodigoGroup; expanded: boolean }) {
                       <td className={`${tdCls} text-amber-400 font-bold`}>NP {row.np.numeroNp}</td>
                       <td className={`${tdCls} text-amber-300`}>{row.np.vinculation}</td>
                       <td className={`${tdCls} text-gray-400`}>{row.np.docOrigin}</td>
+                      <td className={`${tdCls} text-stone-400 font-mono`}>{row.item.tax?.codEfd ?? '—'}</td>
                       {/* Numéricas em branco — o total aparece apenas no rodapé do grupo */}
                       <td colSpan={NUM_COLS} />
                     </tr>
@@ -246,7 +254,7 @@ function GroupTable({ g, expanded }: { g: CodigoGroup; expanded: boolean }) {
               Total Geral — Cód. {g.codigoReceita ?? '—'}
             </td>
             <td className="px-2 py-2 text-right text-amber-300 font-black text-xs">{formatCurrency(grpBruto)}</td>
-            <td className="px-2 py-2 text-right text-amber-300 font-black text-xs">{formatCurrency(grpBruto)}</td>
+            <td className="px-2 py-2 text-right text-amber-300 font-black text-xs">{formatCurrency(grpBaseCalculo)}</td>
             <td className="px-2 py-2 text-right text-amber-300 font-black text-xs">{formatCurrency(grpDarf)}</td>
             {hasIr     && <td className="px-2 py-2 text-right text-gray-200 font-bold text-xs">{formatCurrency(grpIr)}</td>}
             {hasCsll   && <td className="px-2 py-2 text-right text-gray-200 font-bold text-xs">{formatCurrency(grpCsll)}</td>}
@@ -404,11 +412,19 @@ export default function BuscaDarf() {
                     {/* Cabeçalho do grupo */}
                     <div className="px-4 py-3 bg-amber-950/30 border-b border-amber-700/20 flex flex-wrap items-center gap-4">
                       <div className="flex items-center gap-3">
-                        <span className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">Cód.</span>
+                        <span className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">Cód. Receita</span>
                         <span className="px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black font-mono text-base">
                           {g.codigoReceita ?? '—'}
                         </span>
                       </div>
+                      {g.codEfd != null && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">EFD</span>
+                          <span className="px-2 py-0.5 rounded bg-stone-800/60 border border-white/10 text-stone-300 font-mono text-xs">
+                            {g.codEfd}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-1 text-[10px] text-stone-500">
                         <span className="uppercase tracking-widest">Qnt.</span>
                         <span className="text-amber-400 font-bold">{g.qtdNps}</span>
