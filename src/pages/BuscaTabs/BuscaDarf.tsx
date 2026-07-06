@@ -49,10 +49,14 @@ interface EmpresaGroup {
   totalRetAgr: number;
 }
 
+interface CodEfdInfo {
+  codEfd: number | null;
+  description: string | null;
+}
+
 interface CodigoGroup {
   codigoReceita: number | null;
-  description: string | null;
-  codEfd: number | null;
+  codEfds: CodEfdInfo[];
   empresas: EmpresaGroup[];
   totalBruto: number;
   totalBaseCalculo: number;
@@ -84,38 +88,74 @@ function getCalc(calc: TaxCalculatedItem[], type: string): number {
 }
 
 function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
-  // Map codigoReceita → Map cnpj → NpRow[]
+  // ── 1. Deduplicar NPs por numeroNp ──
+  // Uma NP pode vir duplicada no results se estiver associada a múltiplos empenhos.
+  // Como os impostos incidem apenas sobre a NP, processamos cada numeroNp apenas uma vez,
+  // juntando os IDs de vinculação para exibição, se houver.
+  const uniqueNpsMap = new Map<number, PaymentNoteVinculacaoDto>();
+  for (const np of results) {
+    if (!uniqueNpsMap.has(np.numeroNp)) {
+      uniqueNpsMap.set(np.numeroNp, { ...np });
+    } else {
+      const existing = uniqueNpsMap.get(np.numeroNp)!;
+      // Junta os vinculations como string para exibir todos (gambiarra segura para exibição visual)
+      const exVinc = String(existing.vinculation);
+      const newVinc = String(np.vinculation);
+      if (!exVinc.includes(newVinc)) {
+        existing.vinculation = (exVinc + ' / ' + newVinc) as any;
+      }
+    }
+  }
+  const uniqueResults = Array.from(uniqueNpsMap.values());
+
+  // Chave: codigoReceita|codEfd — evita colisão de itens NAO_OPTANTE com codEfds distintos
   const codigoMap = new Map<string, {
     codigoReceita: number | null;
-    description: string | null;
-    codEfd: number | null;
+    codEfds: Map<string, CodEfdInfo>;
     empresaMap: Map<string, { nome: string; rows: NpRow[] }>;
   }>();
 
-  for (const np of results) {
-    const naoOptanteItems = (np.items ?? []).filter(it => it.tax?.tipo === 'NAO_OPTANTE');
-    const fallbackItems = naoOptanteItems.length > 0 ? naoOptanteItems : (np.items ?? []).slice(0, 1);
+  for (const np of uniqueResults) {
+    const allItems = np.items ?? [];
+    const naoOptanteItems = allItems.filter(it => it.tax?.tipo === 'NAO_OPTANTE');
+    const fallbackItems = naoOptanteItems.length > 0 ? naoOptanteItems : allItems.slice(0, 1);
+
+    // DEBUG: mostra a estrutura real de cada NP
+    console.log(
+      `[DARF] NP ${np.numeroNp} — ${allItems.length} item(s),`,
+      allItems.map(it => `tipo=${it.tax?.tipo ?? 'null'} codEfd=${it.tax?.codEfd ?? 'null'} codReceita=${it.tax?.codigoReceita ?? 'null'}`)
+    );
 
     for (const item of fallbackItems) {
       const codigoReceita = item.tax?.codigoReceita ?? null;
-      const key = String(codigoReceita ?? 'SEM');
+      const codEfd = item.tax?.codEfd ?? null;
+      // Chave composta: garante que 2 itens com mesmo codigoReceita mas codEfd diferente ficam em grupos distintos
+      const key = `${codigoReceita ?? 'SEM'}|${codEfd ?? 'NULL'}`;
       if (!codigoMap.has(key)) {
         codigoMap.set(key, {
           codigoReceita,
-          description: item.tax?.taxRuleDescription ?? null,
-          codEfd: item.tax?.codEfd ?? null,
+          codEfds: new Map(),
           empresaMap: new Map(),
         });
       }
       const grupo = codigoMap.get(key)!;
+      // Registra o codEfd com sua descrição (apenas na 1ª ocorrência)
+      const efdKey = String(codEfd ?? 'null');
+      if (!grupo.codEfds.has(efdKey)) {
+        grupo.codEfds.set(efdKey, {
+          codEfd,
+          description: item.tax?.taxRuleDescription ?? null,
+        });
+      }
       const cnpj = np.empresa.cnpj;
       if (!grupo.empresaMap.has(cnpj)) {
         grupo.empresaMap.set(cnpj, { nome: np.empresa.nome, rows: [] });
       }
       const calc = item.tax?.calculatedItems ?? [];
-      // ── DEBUG: expõe os taxTypes reais do backend no console do browser ──
       if (calc.length > 0) {
-        console.log(`[DARF] NP ${np.numeroNp} — taxTypes: [${calc.map(c => c.taxType).join(', ')}]`);
+        console.log(`[DARF]   └ NP ${np.numeroNp} codEfd=${codEfd} taxTypes: [${calc.map(c => c.taxType).join(', ')}]`);
+      } else {
+        console.warn(`[DARF]   └ NP ${np.numeroNp} codEfd=${codEfd} — sem calculatedItems!`);
       }
       grupo.empresaMap.get(cnpj)!.rows.push({ np, item, calc });
     }
@@ -130,8 +170,15 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
 
     for (const [cnpj, emp] of cod.empresaMap) {
       let totalBruto = 0, totalBaseCalculo = 0, totalIr = 0, totalCsll = 0, totalCofins = 0, totalPis = 0, totalDarf = 0;
+      const seenNps = new Set<number>();
+      
       for (const row of emp.rows) {
-        totalBruto      += row.np.value;
+        // Soma Val. Bruto (np.value) apenas UMA vez por NP no grupo
+        if (!seenNps.has(row.np.numeroNp)) {
+          totalBruto += row.np.value;
+          seenNps.add(row.np.numeroNp);
+        }
+        
         totalBaseCalculo += row.item.value;
         totalIr     += getCalc(row.calc, 'IR');
         totalCsll   += getCalc(row.calc, 'CSLL');
@@ -143,13 +190,12 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
       empresas.push({ cnpj, nome: emp.nome, rows: emp.rows, totalBruto, totalBaseCalculo, totalIr, totalCsll, totalCofins, totalPis, totalDarf, totalRetAgr });
       codTotalBruto += totalBruto;
       codTotalImpostos += totalIr + totalCsll + totalCofins + totalPis;
-      codNps += emp.rows.length;
+      codNps += seenNps.size; // Qnt. = quantidade de NPs únicas no grupo
     }
 
     result.push({
       codigoReceita: cod.codigoReceita,
-      description: cod.description,
-      codEfd: cod.codEfd,
+      codEfds: Array.from(cod.codEfds.values()),
       empresas,
       totalBruto: codTotalBruto,
       totalBaseCalculo: empresas.reduce((s, e) => s + e.totalBaseCalculo, 0),
@@ -299,6 +345,11 @@ export default function BuscaDarf() {
   const [results, setResults] = useState<PaymentNoteVinculacaoDto[]>([]);
   const [searched, setSearched] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [showDescMap, setShowDescMap] = useState<Record<string, boolean>>({});
+
+  function toggleDesc(key: string) {
+    setShowDescMap(prev => ({ ...prev, [key]: !prev[key] }));
+  }
 
   async function fetchAll() {
     const mesNum = parseInt(mes, 10);
@@ -332,7 +383,7 @@ export default function BuscaDarf() {
 
   const groups = buildGroups(results);
 
-  const totalNps       = results.length;
+  const totalNps       = new Set(results.map(r => r.numeroNp)).size;
   const totalGrupos    = groups.length;
   const totalImpostos  = groups.reduce((s, g) => s + g.totalImpostos, 0);
 
@@ -431,42 +482,63 @@ export default function BuscaDarf() {
                 return (
                   <div key={gKey} className="glass-panel overflow-hidden">
                     {/* Cabeçalho do grupo */}
-                    <div className="px-4 py-3 bg-amber-950/30 border-b border-amber-700/20 flex flex-wrap items-center gap-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">Cód. Receita</span>
-                        <span className="px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black font-mono text-base">
-                          {g.codigoReceita ?? '—'}
-                        </span>
-                      </div>
-                      {g.codEfd != null && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">EFD</span>
-                          <span className="px-2 py-0.5 rounded bg-stone-800/60 border border-white/10 text-stone-300 font-mono text-xs">
-                            {g.codEfd}
+                    <div className="px-4 py-3 bg-amber-950/30 border-b border-amber-700/20">
+                      <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">Cód. Receita</span>
+                          <span className="px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black font-mono text-base">
+                            {g.codigoReceita ?? '—'}
                           </span>
                         </div>
+                        {/* Badges dos codEfds do grupo */}
+                        {g.codEfds.length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">EFD</span>
+                            {g.codEfds.map((info, i) => (
+                              <span key={i} className="px-2 py-0.5 rounded bg-stone-800/60 border border-white/10 text-stone-300 font-mono text-xs">
+                                {info.codEfd ?? '—'}
+                              </span>
+                            ))}
+                            {/* Botão para revelar descrições — sempre visível quando há EFDs */}
+                            <button
+                              onClick={() => toggleDesc(gKey)}
+                              className="text-[9px] uppercase tracking-widest px-2 py-0.5 rounded border border-stone-600/40 bg-stone-800/30 text-stone-400 hover:text-amber-400 hover:border-amber-600/40 transition-colors font-bold"
+                              title="Ver/ocultar descrições dos EFDs"
+                            >
+                              {showDescMap[gKey] ? '▲ ocultar' : 'ℹ descrição'}
+                            </button>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1 text-[10px] text-stone-500">
+                          <span className="uppercase tracking-widest">Qnt.</span>
+                          <span className="text-amber-400 font-bold">{g.qtdNps}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] text-stone-500">
+                          <span className="uppercase tracking-widest">Valor Total Retido:</span>
+                          <span className="text-amber-400 font-bold">{formatCurrency(g.totalImpostos)}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] text-stone-500">
+                          <span className="uppercase tracking-widest">Data Pag.:</span>
+                          <span className="text-gray-300 font-bold">{dataPag}</span>
+                        </div>
+                        <button
+                          onClick={() => toggleGroup(gKey)}
+                          className="ml-auto text-[10px] uppercase tracking-widest px-3 py-1 rounded border border-amber-600/30 bg-amber-900/20 text-amber-400 hover:bg-amber-800/30 transition-colors font-bold"
+                        >
+                          {isExpanded ? '▲ Recolher' : '▼ Expandir'}
+                        </button>
+                      </div>
+                      {/* Painel de descrições — oculto por padrão */}
+                      {showDescMap[gKey] && (
+                        <div className="mt-2 pt-2 border-t border-white/5 space-y-1">
+                          {g.codEfds.map((info, i) => (
+                            <p key={i} className="text-[10px] text-stone-400 flex gap-2">
+                              <span className="font-mono text-amber-500/80 shrink-0">EFD {info.codEfd ?? '—'}:</span>
+                              <span className="italic">{info.description ?? <span className="text-stone-600">sem descrição cadastrada</span>}</span>
+                            </p>
+                          ))}
+                        </div>
                       )}
-                      <div className="flex items-center gap-1 text-[10px] text-stone-500">
-                        <span className="uppercase tracking-widest">Qnt.</span>
-                        <span className="text-amber-400 font-bold">{g.qtdNps}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-[10px] text-stone-500">
-                        <span className="uppercase tracking-widest">Valor Total Retido:</span>
-                        <span className="text-amber-400 font-bold">{formatCurrency(g.totalImpostos)}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-[10px] text-stone-500">
-                        <span className="uppercase tracking-widest">Data Pag.:</span>
-                        <span className="text-gray-300 font-bold">{dataPag}</span>
-                      </div>
-                      {g.description && (
-                        <span className="text-gray-400 text-xs italic">{g.description}</span>
-                      )}
-                      <button
-                        onClick={() => toggleGroup(gKey)}
-                        className="ml-auto text-[10px] uppercase tracking-widest px-3 py-1 rounded border border-amber-600/30 bg-amber-900/20 text-amber-400 hover:bg-amber-800/30 transition-colors font-bold"
-                      >
-                        {isExpanded ? '▲ Recolher' : '▼ Expandir'}
-                      </button>
                     </div>
 
                     {/* Tabela única do grupo com todas as empresas */}

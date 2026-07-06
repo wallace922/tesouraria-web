@@ -11,6 +11,7 @@ export interface ItemEditState {
   value: string;
   taxTipo: OptanteStatus;
   codEfd: string;
+  backendItems: TaxCalculatedItem[];
   manualItems: TaxCalculatedItem[];
   isManualAdjustment: boolean;
 }
@@ -20,6 +21,7 @@ export const DEFAULT_ITEM: ItemEditState = {
   value: '',
   taxTipo: 'OPTANTE',
   codEfd: '',
+  backendItems: [],
   manualItems: [],
   isManualAdjustment: false,
 };
@@ -31,20 +33,23 @@ export function itemToEditState(item: PaymentNoteItemDto): ItemEditState {
     value: String(item.value),
     taxTipo: item.tax?.tipo ?? 'OPTANTE',
     codEfd: item.tax?.codEfd ? String(item.tax.codEfd) : '',
+    backendItems: item.tax?.calculatedItems?.map(i => ({ ...i })) ?? [],
     manualItems: item.tax?.calculatedItems?.map(i => ({ ...i })) ?? [],
-    isManualAdjustment: false,
+    isManualAdjustment: item.tax?.manualAdjustment ?? false,
   };
 }
 
 export function editStateToItem(s: ItemEditState): PaymentNoteItemDto {
+  const isManual = s.isManualAdjustment && s.manualItems.length > 0;
   return {
     ...(s.id !== undefined ? { id: s.id } : {}),
     description: s.description,
     value: parseFloat(s.value) || 0,
+    manualAdjustment: isManual,
     tax: {
       tipo: s.taxTipo,
       codEfd: s.taxTipo === 'NAO_OPTANTE' && s.codEfd ? parseInt(s.codEfd, 10) : null,
-      ...(s.isManualAdjustment && s.manualItems.length > 0
+      ...(isManual
         ? { manualAdjustment: true, calculatedItems: s.manualItems }
         : {}),
     },
@@ -110,6 +115,7 @@ export function NpItemEditor({ idx, item, total, onChange, onRemove }: NpItemEdi
             onChange={e => set({
               taxTipo: e.target.value as OptanteStatus,
               codEfd: '',
+              backendItems: [],
               manualItems: [],
               isManualAdjustment: false,
             })}
@@ -132,10 +138,10 @@ export function NpItemEditor({ idx, item, total, onChange, onRemove }: NpItemEdi
             <p className="text-stone-500 text-xs">
               O backend calculará os impostos automaticamente ao salvar.
             </p>
-            {item.manualItems.length > 0 && (
+            {item.backendItems.length > 0 && (
               <div className="animate-fadeIn">
                 <TaxAdjustmentPanel
-                  items={item.manualItems}
+                  items={item.backendItems}
                   onChange={(items, manual) => set({ manualItems: items, isManualAdjustment: manual })}
                 />
               </div>
