@@ -49,14 +49,8 @@ interface EmpresaGroup {
   totalRetAgr: number;
 }
 
-interface CodEfdInfo {
-  codEfd: number | null;
-  description: string | null;
-}
-
 interface CodigoGroup {
   codigoReceita: number | null;
-  codEfds: CodEfdInfo[];
   empresas: EmpresaGroup[];
   totalBruto: number;
   totalBaseCalculo: number;
@@ -108,10 +102,9 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
   }
   const uniqueResults = Array.from(uniqueNpsMap.values());
 
-  // Chave: codigoReceita|codEfd — evita colisão de itens NAO_OPTANTE com codEfds distintos
+  // Chave: codigoReceita (não agrupa mais por codEfd)
   const codigoMap = new Map<string, {
     codigoReceita: number | null;
-    codEfds: Map<string, CodEfdInfo>;
     empresaMap: Map<string, { nome: string; rows: NpRow[] }>;
   }>();
 
@@ -120,43 +113,24 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
     const naoOptanteItems = allItems.filter(it => it.tax?.tipo === 'NAO_OPTANTE');
     const fallbackItems = naoOptanteItems.length > 0 ? naoOptanteItems : allItems.slice(0, 1);
 
-    // DEBUG: mostra a estrutura real de cada NP
-    console.log(
-      `[DARF] NP ${np.numeroNp} — ${allItems.length} item(s),`,
-      allItems.map(it => `tipo=${it.tax?.tipo ?? 'null'} codEfd=${it.tax?.codEfd ?? 'null'} codReceita=${it.tax?.codigoReceita ?? 'null'}`)
-    );
-
     for (const item of fallbackItems) {
       const codigoReceita = item.tax?.codigoReceita ?? null;
-      const codEfd = item.tax?.codEfd ?? null;
-      // Chave composta: garante que 2 itens com mesmo codigoReceita mas codEfd diferente ficam em grupos distintos
-      const key = `${codigoReceita ?? 'SEM'}|${codEfd ?? 'NULL'}`;
+      // Agrupa apenas por Código de Receita
+      const key = String(codigoReceita ?? 'SEM');
+      
       if (!codigoMap.has(key)) {
         codigoMap.set(key, {
           codigoReceita,
-          codEfds: new Map(),
           empresaMap: new Map(),
         });
       }
       const grupo = codigoMap.get(key)!;
-      // Registra o codEfd com sua descrição (apenas na 1ª ocorrência)
-      const efdKey = String(codEfd ?? 'null');
-      if (!grupo.codEfds.has(efdKey)) {
-        grupo.codEfds.set(efdKey, {
-          codEfd,
-          description: item.tax?.taxRuleDescription ?? null,
-        });
-      }
+      
       const cnpj = np.empresa.cnpj;
       if (!grupo.empresaMap.has(cnpj)) {
         grupo.empresaMap.set(cnpj, { nome: np.empresa.nome, rows: [] });
       }
       const calc = item.tax?.calculatedItems ?? [];
-      if (calc.length > 0) {
-        console.log(`[DARF]   └ NP ${np.numeroNp} codEfd=${codEfd} taxTypes: [${calc.map(c => c.taxType).join(', ')}]`);
-      } else {
-        console.warn(`[DARF]   └ NP ${np.numeroNp} codEfd=${codEfd} — sem calculatedItems!`);
-      }
       grupo.empresaMap.get(cnpj)!.rows.push({ np, item, calc });
     }
   }
@@ -165,6 +139,7 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
   for (const [, cod] of codigoMap) {
     const empresas: EmpresaGroup[] = [];
     let codTotalBruto = 0;
+    let codTotalBaseCalculo = 0;
     let codTotalImpostos = 0;
     let codNps = 0;
 
@@ -189,16 +164,16 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
       const totalRetAgr = totalCsll + totalCofins + totalPis;
       empresas.push({ cnpj, nome: emp.nome, rows: emp.rows, totalBruto, totalBaseCalculo, totalIr, totalCsll, totalCofins, totalPis, totalDarf, totalRetAgr });
       codTotalBruto += totalBruto;
+      codTotalBaseCalculo += totalBaseCalculo;
       codTotalImpostos += totalIr + totalCsll + totalCofins + totalPis;
       codNps += seenNps.size; // Qnt. = quantidade de NPs únicas no grupo
     }
 
     result.push({
       codigoReceita: cod.codigoReceita,
-      codEfds: Array.from(cod.codEfds.values()),
       empresas,
       totalBruto: codTotalBruto,
-      totalBaseCalculo: empresas.reduce((s, e) => s + e.totalBaseCalculo, 0),
+      totalBaseCalculo: codTotalBaseCalculo,
       totalImpostos: codTotalImpostos,
       qtdNps: codNps,
     });
@@ -234,8 +209,8 @@ function GroupTable({ g, expanded }: { g: CodigoGroup; expanded: boolean }) {
 
   const thCls = 'px-2 py-1.5 text-left text-[9px] uppercase tracking-widest text-stone-500 font-bold whitespace-nowrap';
   const tdCls = 'px-2 py-2 text-xs whitespace-nowrap';
-  // 6 colunas de identificação + 3 fixas numéricas + impostos dinâmicos
-  const ID_COLS = 6; // favorecido, empresa, nº np, vinculação, doc.orig, cód. efd
+  // 5 colunas de identificação + 3 fixas numéricas + impostos dinâmicos
+  const ID_COLS = 5; // favorecido, empresa, nº np, vinculação, doc.orig
   const NUM_COLS = 3 + (hasIr?1:0) + (hasCsll?1:0) + (hasCofins?1:0) + (hasPis?1:0) + (hasRetAgr?1:0);
   const totalCols = ID_COLS + NUM_COLS;
 
@@ -249,7 +224,6 @@ function GroupTable({ g, expanded }: { g: CodigoGroup; expanded: boolean }) {
             <th className={thCls}>Nº NP</th>
             <th className={thCls}>Vinculação</th>
             <th className={thCls}>Doc. Orig.</th>
-            <th className={thCls}>Cód. EFD</th>
             <th className={`${thCls} text-right`}>Val. Bruto</th>
             <th className={`${thCls} text-right`}>Base Cálc.</th>
             <th className={`${thCls} text-right`}>DARF</th>
@@ -283,10 +257,16 @@ function GroupTable({ g, expanded }: { g: CodigoGroup; expanded: boolean }) {
                       <tr key={idx} className="border-b border-white/5 hover:bg-stone-800/20">
                         <td className={`${tdCls} text-stone-500 font-mono text-[10px]`}>{formatCNPJ(emp.cnpj)}</td>
                         <td className={`${tdCls} text-gray-400`}>{emp.nome}</td>
-                        <td className={`${tdCls} text-amber-400 font-bold`}>NP {row.np.numeroNp}</td>
+                        <td className={`${tdCls}`}>
+                          <span className="text-amber-400 font-bold block">NP {row.np.numeroNp}</span>
+                          {row.item.tax?.taxRuleDescription && (
+                            <span className="text-[9px] text-stone-500 italic block mt-0.5 truncate max-w-[200px]" title={row.item.tax.taxRuleDescription}>
+                              {row.item.tax.taxRuleDescription}
+                            </span>
+                          )}
+                        </td>
                         <td className={`${tdCls} text-amber-300`}>{row.np.vinculation}</td>
                         <td className={`${tdCls} text-gray-400`}>{row.np.docOrigin}</td>
-                        <td className={`${tdCls} text-stone-400 font-mono`}>{row.item.tax?.codEfd ?? '—'}</td>
                         <td className={`${tdCls} text-right text-gray-200`}>{formatCurrency(row.np.value)}</td>
                         <td className={`${tdCls} text-right text-gray-200`}>{formatCurrency(row.item.value)}</td>
                         <td className={`${tdCls} text-right`}><Val v={darfRow} className="text-amber-300 font-bold" /></td>
@@ -306,7 +286,6 @@ function GroupTable({ g, expanded }: { g: CodigoGroup; expanded: boolean }) {
                       <td className={`${tdCls} text-amber-400 font-bold`}>NP {row.np.numeroNp}</td>
                       <td className={`${tdCls} text-amber-300`}>{row.np.vinculation}</td>
                       <td className={`${tdCls} text-gray-400`}>{row.np.docOrigin}</td>
-                      <td className={`${tdCls} text-stone-400 font-mono`}>{row.item.tax?.codEfd ?? '—'}</td>
                       {/* Numéricas em branco — o total aparece apenas no rodapé do grupo */}
                       <td colSpan={NUM_COLS} />
                     </tr>
@@ -343,13 +322,8 @@ export default function BuscaDarf() {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [results, setResults] = useState<PaymentNoteVinculacaoDto[]>([]);
-  const [searched, setSearched] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [showDescMap, setShowDescMap] = useState<Record<string, boolean>>({});
-
-  function toggleDesc(key: string) {
-    setShowDescMap(prev => ({ ...prev, [key]: !prev[key] }));
-  }
+  const [searched, setSearched]               = useState(false);
+  const [expandedGroups, setExpandedGroups]   = useState<Set<string>>(new Set());
 
   async function fetchAll() {
     const mesNum = parseInt(mes, 10);
@@ -490,25 +464,6 @@ export default function BuscaDarf() {
                             {g.codigoReceita ?? '—'}
                           </span>
                         </div>
-                        {/* Badges dos codEfds do grupo */}
-                        {g.codEfds.length > 0 && (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] uppercase tracking-widest text-stone-500 font-bold">EFD</span>
-                            {g.codEfds.map((info, i) => (
-                              <span key={i} className="px-2 py-0.5 rounded bg-stone-800/60 border border-white/10 text-stone-300 font-mono text-xs">
-                                {info.codEfd ?? '—'}
-                              </span>
-                            ))}
-                            {/* Botão para revelar descrições — sempre visível quando há EFDs */}
-                            <button
-                              onClick={() => toggleDesc(gKey)}
-                              className="text-[9px] uppercase tracking-widest px-2 py-0.5 rounded border border-stone-600/40 bg-stone-800/30 text-stone-400 hover:text-amber-400 hover:border-amber-600/40 transition-colors font-bold"
-                              title="Ver/ocultar descrições dos EFDs"
-                            >
-                              {showDescMap[gKey] ? '▲ ocultar' : 'ℹ descrição'}
-                            </button>
-                          </div>
-                        )}
                         <div className="flex items-center gap-1 text-[10px] text-stone-500">
                           <span className="uppercase tracking-widest">Qnt.</span>
                           <span className="text-amber-400 font-bold">{g.qtdNps}</span>
@@ -528,17 +483,6 @@ export default function BuscaDarf() {
                           {isExpanded ? '▲ Recolher' : '▼ Expandir'}
                         </button>
                       </div>
-                      {/* Painel de descrições — oculto por padrão */}
-                      {showDescMap[gKey] && (
-                        <div className="mt-2 pt-2 border-t border-white/5 space-y-1">
-                          {g.codEfds.map((info, i) => (
-                            <p key={i} className="text-[10px] text-stone-400 flex gap-2">
-                              <span className="font-mono text-amber-500/80 shrink-0">EFD {info.codEfd ?? '—'}:</span>
-                              <span className="italic">{info.description ?? <span className="text-stone-600">sem descrição cadastrada</span>}</span>
-                            </p>
-                          ))}
-                        </div>
-                      )}
                     </div>
 
                     {/* Tabela única do grupo com todas as empresas */}
