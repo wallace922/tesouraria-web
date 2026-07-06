@@ -62,8 +62,25 @@ interface CodigoGroup {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/** Normaliza o taxType para comparação: uppercase, remove /, _, espaço e hífen. */
+function normTaxType(s: string): string {
+  return s.toUpperCase().replace(/[\/\-_\s]/g, '');
+}
+
+/**
+ * Busca o valor de um imposto pelo taxType.
+ * Tenta match exato primeiro; cai em match normalizado como fallback
+ * para tolerar variações do backend (PIS_PASEP vs PIS/PASEP vs PIS PASEP).
+ */
 function getCalc(calc: TaxCalculatedItem[], type: string): number {
-  return calc.find(c => c.taxType === type)?.amount ?? 0;
+  const exact = calc.find(c => c.taxType === type);
+  if (exact) return exact.amount;
+  const norm = normTaxType(type);
+  const fuzzy = calc.find(c => normTaxType(c.taxType) === norm);
+  if (fuzzy) {
+    console.warn(`[DARF] taxType fuzzy match: buscado="${type}", encontrado="${fuzzy.taxType}"`);
+  }
+  return fuzzy?.amount ?? 0;
 }
 
 function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
@@ -96,6 +113,10 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
         grupo.empresaMap.set(cnpj, { nome: np.empresa.nome, rows: [] });
       }
       const calc = item.tax?.calculatedItems ?? [];
+      // ── DEBUG: expõe os taxTypes reais do backend no console do browser ──
+      if (calc.length > 0) {
+        console.log(`[DARF] NP ${np.numeroNp} — taxTypes: [${calc.map(c => c.taxType).join(', ')}]`);
+      }
       grupo.empresaMap.get(cnpj)!.rows.push({ np, item, calc });
     }
   }
