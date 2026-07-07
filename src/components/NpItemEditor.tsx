@@ -2,6 +2,7 @@ import type { PaymentNoteItemDto, OptanteStatus, TaxCalculatedItem } from '../ty
 import TaxAdjustmentPanel from './TaxAdjustmentPanel';
 import Input from './Input';
 import Select from './Select';
+import { parseBRCurrency } from '../lib/utils';
 
 // ── Tipos exportados ──────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ export function editStateToItem(s: ItemEditState): PaymentNoteItemDto {
   return {
     ...(s.id !== undefined ? { id: s.id } : {}),
     description: s.description,
-    value: parseFloat(s.value) || 0,
+    value: parseBRCurrency(s.value) || 0,
     manualAdjustment: isManual,
     tax: {
       tipo: s.taxTipo,
@@ -99,9 +100,8 @@ export function NpItemEditor({ idx, item, total, onChange, onRemove }: NpItemEdi
         </div>
         <Input
           label="Valor (R$)"
-          type="number"
-          step="0.01"
-          placeholder="Ex: 1500.00"
+          type="text"
+          placeholder="Ex: 1.500,00"
           value={item.value}
           onChange={e => set({ value: e.target.value })}
         />

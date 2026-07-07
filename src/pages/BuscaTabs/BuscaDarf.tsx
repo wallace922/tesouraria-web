@@ -62,7 +62,9 @@ interface CodigoGroup {
 
 /** Normaliza o taxType para comparação: uppercase, remove /, _, espaço e hífen. */
 function normTaxType(s: string): string {
-  return s.toUpperCase().replace(/[\/\-_\s]/g, '');
+  const val = s.toUpperCase().replace(/[\/\-_\s]/g, '');
+  if (val === 'CLSS' || val === 'CSSL' || val === 'CSL') return 'CSLL';
+  return val;
 }
 
 /**
@@ -88,10 +90,11 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
   // juntando os IDs de vinculação para exibição, se houver.
   const uniqueNpsMap = new Map<number, PaymentNoteVinculacaoDto>();
   for (const np of results) {
-    if (!uniqueNpsMap.has(np.numeroNp)) {
-      uniqueNpsMap.set(np.numeroNp, { ...np });
+    const npKey = np.id ?? Number(np.numeroNp);
+    if (!uniqueNpsMap.has(npKey)) {
+      uniqueNpsMap.set(npKey, { ...np });
     } else {
-      const existing = uniqueNpsMap.get(np.numeroNp)!;
+      const existing = uniqueNpsMap.get(npKey)!;
       // Junta os vinculations como string para exibir todos (gambiarra segura para exibição visual)
       const exVinc = String(existing.vinculation);
       const newVinc = String(np.vinculation);
@@ -110,28 +113,83 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
 
   for (const np of uniqueResults) {
     const allItems = np.items ?? [];
-    const naoOptanteItems = allItems.filter(it => it.tax?.tipo === 'NAO_OPTANTE');
-    const fallbackItems = naoOptanteItems.length > 0 ? naoOptanteItems : allItems.slice(0, 1);
+    
+    // Deduplica itens pelo ID para evitar duplicações causadas por joins no backend (produto cartesiano do Hibernate)
+    const seenItemIds = new Set<number>();
+    const uniqueItems: PaymentNoteItemDto[] = [];
+    for (const it of allItems) {
+      if (it.id !== undefined) {
+        if (seenItemIds.has(it.id)) continue;
+        seenItemIds.add(it.id);
+      }
+      uniqueItems.push(it);
+    }
 
+    const naoOptanteItems = uniqueItems.filter(it => it.tax?.tipo === 'NAO_OPTANTE');
+    const fallbackItems = naoOptanteItems.length > 0 ? naoOptanteItems : uniqueItems.slice(0, 1);
+
+    // Agrupa os itens da mesma NP por codigoReceita
+    const itemsByReceita = new Map<number | null, PaymentNoteItemDto[]>();
     for (const item of fallbackItems) {
-      const codigoReceita = item.tax?.codigoReceita ?? null;
-      // Agrupa apenas por Código de Receita
-      const key = String(codigoReceita ?? 'SEM');
-      
+      const codRec = item.tax?.codigoReceita ?? null;
+      if (!itemsByReceita.has(codRec)) {
+        itemsByReceita.set(codRec, []);
+      }
+      itemsByReceita.get(codRec)!.push(item);
+    }
+
+    // Para cada codigoReceita, cria uma única linha consolidando os itens
+    for (const [codRec, itemsInReceita] of itemsByReceita) {
+      const key = String(codRec ?? 'SEM');
       if (!codigoMap.has(key)) {
         codigoMap.set(key, {
-          codigoReceita,
+          codigoReceita: codRec,
           empresaMap: new Map(),
         });
       }
       const grupo = codigoMap.get(key)!;
-      
+
       const cnpj = np.empresa.cnpj;
       if (!grupo.empresaMap.has(cnpj)) {
         grupo.empresaMap.set(cnpj, { nome: np.empresa.nome, rows: [] });
       }
-      const calc = item.tax?.calculatedItems ?? [];
-      grupo.empresaMap.get(cnpj)!.rows.push({ np, item, calc });
+
+      // Consolda o valor dos itens desse código de receita
+      const mergedValue = itemsInReceita.reduce((sum, it) => sum + it.value, 0);
+
+      // Consolida os impostos calculados
+      const calcMap = new Map<string, TaxCalculatedItem>();
+      for (const it of itemsInReceita) {
+        const calcs = it.tax?.calculatedItems ?? [];
+        for (const c of calcs) {
+          const norm = normTaxType(c.taxType);
+          if (!calcMap.has(norm)) {
+            calcMap.set(norm, { taxType: c.taxType, rate: c.rate, amount: 0 });
+          }
+          calcMap.get(norm)!.amount += c.amount;
+        }
+      }
+      const mergedCalc = Array.from(calcMap.values());
+
+      // Combina as descrições
+      const descriptions = itemsInReceita
+        .map(it => it.tax?.taxRuleDescription)
+        .filter((desc): desc is string => typeof desc === 'string' && desc.trim().length > 0);
+      const uniqueDescriptions = Array.from(new Set(descriptions));
+      const mergedDesc = uniqueDescriptions.join(' | ') || null;
+
+      const mergedItem: PaymentNoteItemDto = {
+        value: mergedValue,
+        tax: {
+          tipo: itemsInReceita[0].tax?.tipo ?? 'NAO_OPTANTE',
+          codEfd: itemsInReceita[0].tax?.codEfd ?? null,
+          codigoReceita: codRec ?? undefined,
+          taxRuleDescription: mergedDesc,
+          calculatedItems: mergedCalc,
+        }
+      };
+
+      grupo.empresaMap.get(cnpj)!.rows.push({ np, item: mergedItem, calc: mergedCalc });
     }
   }
 
@@ -149,9 +207,10 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
       
       for (const row of emp.rows) {
         // Soma Val. Bruto (np.value) apenas UMA vez por NP no grupo
-        if (!seenNps.has(row.np.numeroNp)) {
+        const npKey = row.np.id ?? Number(row.np.numeroNp);
+        if (!seenNps.has(npKey)) {
           totalBruto += row.np.value;
-          seenNps.add(row.np.numeroNp);
+          seenNps.add(npKey);
         }
         
         totalBaseCalculo += row.item.value;

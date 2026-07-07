@@ -29,7 +29,7 @@ import type {
   TaxRuleDto,
   TaxRuleItemDto,
 } from '../types';
-import { formatCNPJ, formatCurrency, formatDate, applyDateMask } from '../lib/utils';
+import { formatCNPJ, formatCurrency, formatDate, applyDateMask, parseBRCurrency } from '../lib/utils';
 
 // ── Tabs config ───────────────────────────────────────────────────────────────
 
@@ -319,7 +319,7 @@ function FormPaymentNote() {
     if (!dateRegex.test(dataLiq)) { setError('Data Liquidação inválida. Use o formato DD/MM/YYYY.'); return; }
     if (!cnpjValid) { setError('Valide o CNPJ antes de salvar.'); return; }
     if (npItems.length === 0) { setError('Adicione pelo menos um item.'); return; }
-    if (npItems.some(it => !it.value || parseFloat(it.value) <= 0)) {
+    if (npItems.some(it => !it.value || parseBRCurrency(it.value) <= 0)) {
       setError('Todos os itens devem ter um valor maior que zero.'); return;
     }
     setConfirmOpen(true);
@@ -421,9 +421,9 @@ function FormPaymentNote() {
             <div className="flex items-center justify-between mb-3">
               <SectionTitle>
                 Itens e Tributação
-                {npItems.reduce((s, it) => s + (parseFloat(it.value) || 0), 0) > 0 && (
+                {npItems.reduce((s, it) => s + (parseBRCurrency(it.value) || 0), 0) > 0 && (
                   <span className="ml-2 text-amber-400 font-mono normal-case text-sm">
-                    — Total: {formatCurrency(npItems.reduce((s, it) => s + (parseFloat(it.value) || 0), 0))}
+                    — Total: {formatCurrency(npItems.reduce((s, it) => s + (parseBRCurrency(it.value) || 0), 0))}
                   </span>
                 )}
               </SectionTitle>
