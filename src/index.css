@@ -32,3 +32,14 @@ html {
     opacity: 0.25;
   }
 }
+
+/* ── Tema Claro (Light Mode) ── */
+html.theme-light {
+  filter: invert(1) hue-rotate(180deg);
+  background-color: white; /* Define explicitamente o fundo para evitar bordas pretas */
+}
+
+html.theme-light img, 
+html.theme-light .no-invert {
+  filter: invert(1) hue-rotate(180deg);
+}
