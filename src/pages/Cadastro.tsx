@@ -435,6 +435,8 @@ function FormPaymentNote() {
                   idx={idx}
                   item={item}
                   total={npItems.length}
+                  dataLiquidacao={dataLiq || undefined}
+                  nomeEmpresaNp={empresaNome || undefined}
                   onChange={updateItem}
                   onRemove={removeItem}
                 />

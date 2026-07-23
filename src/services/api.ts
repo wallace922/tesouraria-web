@@ -6,6 +6,7 @@ import type {
   FinancialPlanningDto,
   EmpresaDto,
   TaxRuleDto,
+  TaxRuleOption,
   PaymentNoteVinculacaoDto,
   PaymentNoteEmpenhoBasicDto,
   PaymentNoteItemDto,
@@ -73,12 +74,15 @@ function serializeItem(item: PaymentNoteItemDto) {
       ? {
           tipo: item.tax.tipo,
           codEfd: item.tax.codEfd,
+          codigoReceita: item.tax.codigoReceita ?? null,
           manualAdjustment: true,
           calculatedItems: item.tax.calculatedItems ?? [],
         }
       : {
           tipo: item.tax.tipo,
           codEfd: item.tax.codEfd,
+          // Envia codigoReceita somente quando foi selecionado pelo usuário
+          ...(item.tax.codigoReceita != null ? { codigoReceita: item.tax.codigoReceita } : {}),
         }
     : null;
 
@@ -88,6 +92,10 @@ function serializeItem(item: PaymentNoteItemDto) {
     value: item.value,
     tax: taxPayload,
     manualAdjustment: item.manualAdjustment ?? false,
+    // Envia o CNPJ do beneficiário somente quando foi informado
+    ...(item.empresaBeneficiaria?.cnpj
+      ? { empresaBeneficiaria: { cnpj: item.empresaBeneficiaria.cnpj } }
+      : {}),
   };
 }
 
@@ -426,6 +434,28 @@ export async function updateTaxRule(
       dataFimVigencia: dto.dataFimVigencia ? formatDate(dto.dataFimVigencia) : null,
     };
     const res = await apiInstance.put<TaxRuleDto>(`/TaxRule/${id}`, payload);
+    return { data: res.data, status: res.status, errorMessage: null };
+  } catch (e) { return handleError(e); }
+}
+
+/**
+ * GET /API/TaxRule/opcoes?codEfd={n}&data={yyyy-MM-dd}
+ * Retorna as opções de código de receita vigentes para um EFD em uma data.
+ * - 0 resultados → EFD sem regra ativa.
+ * - 1 resultado  → preencher codigoReceita automaticamente.
+ * - N resultados → exibir select para o usuário escolher.
+ *
+ * @param codEfd O código EFD.
+ * @param data   Data de referência no formato yyyy-MM-dd.
+ */
+export async function getOpcoesReceitaPorEfd(
+  codEfd: number,
+  data: string
+): Promise<ApiResult<TaxRuleOption[]>> {
+  try {
+    const res = await apiInstance.get<TaxRuleOption[]>('/TaxRule/opcoes', {
+      params: { codEfd, data },
+    });
     return { data: res.data, status: res.status, errorMessage: null };
   } catch (e) { return handleError(e); }
 }

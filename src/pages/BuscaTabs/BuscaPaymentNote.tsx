@@ -230,6 +230,8 @@ export default function BuscaPaymentNote() {
                   idx={idx}
                   item={item}
                   total={editItems.length}
+                  dataLiquidacao={dataLiq || undefined}
+                  nomeEmpresaNp={empresaNome || undefined}
                   onChange={updateItem}
                   onRemove={removeItem}
                 />

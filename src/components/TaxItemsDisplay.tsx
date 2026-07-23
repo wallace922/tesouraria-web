@@ -1,4 +1,4 @@
-import type { TaxCalculatedItem, TaxStatus } from '../types';
+import type { EmpresaDto, TaxCalculatedItem, TaxStatus } from '../types';
 import { formatCurrency } from '../lib/utils';
 
 // ── Badge de status do imposto ─────────────────────────────────────────────────
@@ -23,6 +23,8 @@ function TaxStatusBadge({ status }: { status: TaxStatus }) {
 interface TaxItemsDisplayProps {
   items: TaxCalculatedItem[];
   taxStatus?: TaxStatus;
+  /** Empresa beneficiária do imposto retido neste item. Se informado, é exibido em destaque. */
+  empresaBeneficiaria?: EmpresaDto | null;
   /** Se true, renderiza em modo compacto (sem título) */
   compact?: boolean;
 }
@@ -31,8 +33,10 @@ interface TaxItemsDisplayProps {
  * Exibe a lista dinâmica de impostos calculados retornada pelo backend.
  * Layout em grid com colunas de largura fixa para alinhamento consistente
  * independente da quantidade ou tamanho dos nomes dos impostos.
+ * Quando empresaBeneficiaria é fornecido, exibe o nome/CNPJ do beneficiário
+ * para deixar claro qual empresa está sendo tributada em cada item.
  */
-export default function TaxItemsDisplay({ items, taxStatus, compact = false }: TaxItemsDisplayProps) {
+export default function TaxItemsDisplay({ items, taxStatus, empresaBeneficiaria, compact = false }: TaxItemsDisplayProps) {
   if (!items || items.length === 0) {
     return (
       <span className="text-stone-600 text-sm italic">Sem impostos calculados</span>
@@ -49,6 +53,19 @@ export default function TaxItemsDisplay({ items, taxStatus, compact = false }: T
             Impostos
           </span>
           {taxStatus && <TaxStatusBadge status={taxStatus} />}
+        </div>
+      )}
+
+      {/* Beneficiário do imposto — exibido quando diferente do CNPJ da NP */}
+      {empresaBeneficiaria && (
+        <div className="flex items-center gap-2 mb-1 px-1">
+          <span className="text-xs text-stone-500">Beneficiário:</span>
+          <span className="text-xs font-semibold text-sky-400">
+            {empresaBeneficiaria.nome}
+          </span>
+          <span className="text-xs text-stone-600 font-mono">
+            {empresaBeneficiaria.cnpj}
+          </span>
         </div>
       )}
 
@@ -88,3 +105,4 @@ export default function TaxItemsDisplay({ items, taxStatus, compact = false }: T
     </div>
   );
 }
+

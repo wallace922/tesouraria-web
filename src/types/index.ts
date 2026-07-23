@@ -61,8 +61,11 @@ export interface TaxDto {
   id?: number;
   tipo: OptanteStatus;
   codEfd: number | null;
-  /** Código de agrupamento de receita — presente nos retornos do backend. */
-  codigoReceita?: number;
+  /**
+   * Código de receita — lido da resposta do backend E enviado quando o EFD
+   * possui múltiplos códigos de receita vigentes (seleção obrigatória pelo usuário).
+   */
+  codigoReceita?: number | null;
   /**
    * Descrição legível da TaxRule vigente no momento do cálculo.
    * Campo somente-leitura (read-only) — não deve ser enviado em POST/PUT.
@@ -92,6 +95,11 @@ export interface PaymentNoteItemDto {
   value: number;
   tax: TaxDto;
   manualAdjustment?: boolean;
+  /**
+   * Empresa beneficiária do imposto retido neste item.
+   * Opcional — se null/undefined, o backend herda a empresa da própria NP.
+   */
+  empresaBeneficiaria?: EmpresaDto | null;
 }
 
 // ── Payment Note ──────────────────────────────────────────────────────────────
@@ -196,6 +204,23 @@ export interface TaxRuleDto {
   /** Data de início de vigência — obrigatório, formato dd/MM/yyyy */
   dataInicioVigencia: string;
   /** Data de fim de vigência — null significa "em vigor" */
+  dataFimVigencia: string | null;
+  items: TaxRuleItemDto[];
+}
+
+// ── Tax Rule Option (retornado por GET /API/TaxRule/opcoes) ───────────────────
+
+/**
+ * Opção de código de receita retornada pelo endpoint GET /API/TaxRule/opcoes.
+ * Usado pelo NpItemEditor para listar as opções quando um EFD tem múltiplos
+ * códigos de receita vigentes na data de liquidação da NP.
+ */
+export interface TaxRuleOption {
+  id: number;
+  codEfd: number;
+  codigoReceita: number;
+  description: string;
+  dataInicioVigencia: string;
   dataFimVigencia: string | null;
   items: TaxRuleItemDto[];
 }

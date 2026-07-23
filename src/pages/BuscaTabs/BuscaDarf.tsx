@@ -5,7 +5,7 @@ import Select from '../../components/Select';
 import Input from '../../components/Input';
 import { SectionTitle } from './Shared';
 import { getPaymentEmpenhoByMesAno } from '../../services/api';
-import type { PaymentNoteVinculacaoDto, PaymentNoteItemDto, TaxCalculatedItem } from '../../types';
+import type { EmpresaDto, PaymentNoteVinculacaoDto, PaymentNoteItemDto, TaxCalculatedItem } from '../../types';
 import { formatCurrency, formatCNPJ } from '../../lib/utils';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -33,9 +33,12 @@ interface NpRow {
   np: PaymentNoteVinculacaoDto;
   item: PaymentNoteItemDto;
   calc: TaxCalculatedItem[];
+  /** Empresa real que é o beneficiário do imposto retido neste item */
+  empresaBeneficiaria: EmpresaDto;
 }
 
 interface EmpresaGroup {
+  /** CNPJ do beneficiário do imposto (pode ser diferente do CNPJ da NP) */
   cnpj: string;
   nome: string;
   rows: NpRow[];
@@ -149,9 +152,16 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
       }
       const grupo = codigoMap.get(key)!;
 
-      const cnpj = np.empresa.cnpj;
+      // Usa a empresa beneficiária do item quando disponível (nova feature);
+      // caso contrário, herda a empresa da própria NP (comportamento original).
+      // Como todos os itens em itemsInReceita compartilham o mesmo codRec,
+      // usamos o primeiro item para determinar o beneficiário do grupo.
+      const primItem = itemsInReceita[0];
+      const empresaReal: EmpresaDto = primItem.empresaBeneficiaria ?? np.empresa;
+      const cnpj = empresaReal.cnpj;
+
       if (!grupo.empresaMap.has(cnpj)) {
-        grupo.empresaMap.set(cnpj, { nome: np.empresa.nome, rows: [] });
+        grupo.empresaMap.set(cnpj, { nome: empresaReal.nome, rows: [] });
       }
 
       // Consolda o valor dos itens desse código de receita
@@ -186,10 +196,12 @@ function buildGroups(results: PaymentNoteVinculacaoDto[]): CodigoGroup[] {
           codigoReceita: codRec ?? undefined,
           taxRuleDescription: mergedDesc,
           calculatedItems: mergedCalc,
-        }
+        },
+        // Propaga o beneficiário real para que a tabela possa exibi-lo
+        empresaBeneficiaria: primItem.empresaBeneficiaria ?? null,
       };
 
-      grupo.empresaMap.get(cnpj)!.rows.push({ np, item: mergedItem, calc: mergedCalc });
+      grupo.empresaMap.get(cnpj)!.rows.push({ np, item: mergedItem, calc: mergedCalc, empresaBeneficiaria: empresaReal });
     }
   }
 
@@ -312,10 +324,27 @@ function GroupTable({ g, expanded }: { g: CodigoGroup; expanded: boolean }) {
                     const pis     = getCalc(row.calc, 'PIS_PASEP');
                     const darfRow = ir + csll + cofins + pis;
                     const retAgr  = csll + cofins + pis;
+                    // Beneficiário real do imposto (pode diferir da empresa da NP)
+                    const benef = row.empresaBeneficiaria;
+                    const isBenefDiferente = benef.cnpj !== row.np.empresa.cnpj;
                     return (
                       <tr key={idx} className="border-b border-white/5 hover:bg-stone-800/20">
-                        <td className={`${tdCls} text-stone-500 font-mono text-[10px]`}>{formatCNPJ(emp.cnpj)}</td>
-                        <td className={`${tdCls} text-gray-400`}>{emp.nome}</td>
+                        <td className={`${tdCls} text-stone-500 font-mono text-[10px]`}>
+                          {formatCNPJ(benef.cnpj)}
+                          {isBenefDiferente && (
+                            <span className="block text-[8px] text-sky-500/70 normal-case tracking-normal" title="Beneficiário diferente do CNPJ da NP">
+                              ≠ NP: {formatCNPJ(row.np.empresa.cnpj)}
+                            </span>
+                          )}
+                        </td>
+                        <td className={`${tdCls} text-gray-400`}>
+                          {benef.nome}
+                          {isBenefDiferente && (
+                            <span className="block text-[9px] text-stone-600 italic">
+                              NP: {row.np.empresa.nome}
+                            </span>
+                          )}
+                        </td>
                         <td className={`${tdCls}`}>
                           <span className="text-amber-400 font-bold block">NP {row.np.numeroNp}</span>
                           {row.item.tax?.taxRuleDescription && (
@@ -337,18 +366,28 @@ function GroupTable({ g, expanded }: { g: CodigoGroup; expanded: boolean }) {
                       </tr>
                     );
                   })
-                // Modo recolhido: cada NP em sua própria linha, colunas numéricas vazias
-                : emp.rows.map((row, idx) => (
-                    <tr key={idx} className="border-b border-white/5 hover:bg-stone-800/20">
-                      <td className={`${tdCls} text-stone-500 font-mono text-[10px]`}>{formatCNPJ(emp.cnpj)}</td>
-                      <td className={`${tdCls} text-gray-400`}>{emp.nome}</td>
-                      <td className={`${tdCls} text-amber-400 font-bold`}>NP {row.np.numeroNp}</td>
-                      <td className={`${tdCls} text-amber-300`}>{row.np.vinculation}</td>
-                      <td className={`${tdCls} text-gray-400`}>{row.np.docOrigin}</td>
-                      {/* Numéricas em branco — o total aparece apenas no rodapé do grupo */}
-                      <td colSpan={NUM_COLS} />
-                    </tr>
-                  ))
+                // Modo recolhido
+                : emp.rows.map((row, idx) => {
+                    const benef = row.empresaBeneficiaria;
+                    const isBenefDiferente = benef.cnpj !== row.np.empresa.cnpj;
+                    return (
+                      <tr key={idx} className="border-b border-white/5 hover:bg-stone-800/20">
+                        <td className={`${tdCls} text-stone-500 font-mono text-[10px]`}>
+                          {formatCNPJ(benef.cnpj)}
+                          {isBenefDiferente && (
+                            <span className="block text-[8px] text-sky-500/70 normal-case tracking-normal">
+                              ≠ NP: {formatCNPJ(row.np.empresa.cnpj)}
+                            </span>
+                          )}
+                        </td>
+                        <td className={`${tdCls} text-gray-400`}>{benef.nome}</td>
+                        <td className={`${tdCls} text-amber-400 font-bold`}>NP {row.np.numeroNp}</td>
+                        <td className={`${tdCls} text-amber-300`}>{row.np.vinculation}</td>
+                        <td className={`${tdCls} text-gray-400`}>{row.np.docOrigin}</td>
+                        <td colSpan={NUM_COLS} />
+                      </tr>
+                    );
+                  })
               }
             </React.Fragment>
           ))}

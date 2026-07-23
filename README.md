@@ -367,6 +367,12 @@ const {
 | Status `Encerrada` (TaxRule) | `text-stone-500` |
 | Tamanho de fonte base | `17px` (definido em `index.css` → `html { font-size: 17px }`) |
 
+### Alternância de Tema (Light Mode)
+O sistema possui suporte a um **Tema Claro (Light Mode)** acessível via botão (☀️/🌙) no cabeçalho.
+- O tema claro é gerado nativamente via **filtros CSS** (`filter: invert(1) hue-rotate(180deg)`) aplicados no `index.css` à classe `.theme-light`.
+- A preferência do usuário é salva no `localStorage` sob a chave `theme`.
+- Imagens e brasões possuem proteção de filtro (`.no-invert`) para preservarem suas cores originais.
+
 ---
 
 ## Convenções de Código
@@ -408,7 +414,14 @@ Os controles de paginação são exibidos **tanto no topo quanto no rodapé** de
 
 > `BuscaTaxRule` **não** possui paginação — a API de TaxRule retorna todas as versões de uma vez, sem `page`/`size`.
 
-### 6. Sem gerenciador de estado externo
+### 6. Formatação Numérica (Moeda PT-BR)
+Para entradas de valores monetários na interface, **não** dependa do tipo `type="number"` puro, pois ele força o formato americano (ex: `1254.65`) e bloqueia separadores de milhar e decimais com vírgula (ex: `1.254,65`).
+Use `type="text"` no input, e processe o valor com o formatador genérico `parseBRCurrency(value)` da `src/lib/utils.ts` antes de persistir no estado lógico numérico.
+
+### 7. Deduplicação e Impostos no DARF
+O backend pode retornar relacionamentos múltiplos (um mesmo item associado a múltiplos empenhos), inflando o produto cartesiano das chamadas HTTP. Para cálculos de relatório (ex: `BuscaDarf.tsx`), é obrigatório deduplicar os itens pelo ID (`np.items[].id`) utilizando `Set` antes de somar totais, evitando duplicidade nos agregados DARF. Adicionalmente, typos do backend como `CLSS` são normalizados em tempo de execução para garantir que o tipo `CSLL` englobe-os perfeitamente.
+
+### 8. Sem gerenciador de estado externo
 O projeto usa apenas `useState` e `useEffect` nativos. Não introduzir Redux, Zustand, Context API ou similares sem decisão explícita.
 
 ---
